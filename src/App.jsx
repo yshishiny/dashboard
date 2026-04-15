@@ -232,7 +232,117 @@ function ActionMenu({ isOpen, onClose, actions }) {
 }
 
 // ─── Vibrant Pillar Card ──────────────────────────────────────────────────────
-function VibrantPillarCard({ pillar, milestones, isExpanded, onToggle, onEdit, onDelete, onShare, canEdit }) {
+function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone }) {
+  const [showSubs, setShowSubs] = useState(false);
+  const [newSub, setNewSub] = useState("");
+  const doneCount = subs.filter(s => s.done).length;
+
+  const submitSub = (e) => {
+    e.preventDefault();
+    if (!newSub.trim()) return;
+    onCreateSubtask(m.id, newSub);
+    setNewSub("");
+  };
+
+  return (
+    <motion.div
+      initial={{ x: -20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ delay: 0.4 + idx * 0.05 }}
+      className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-all border border-slate-100 overflow-hidden"
+    >
+      <div className="flex items-start gap-3 p-4">
+        <div className={`p-2 rounded-xl bg-gradient-to-br ${mCfg.gradient} shadow-md`}>
+          <div className="text-white">{mCfg.icon}</div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm text-slate-900 mb-1">{m.name}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${mCfg.badge}`}>{mCfg.label}</span>
+            {m.due_date && (
+              <span className="text-xs text-slate-500 flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {formatDate(m.due_date)}
+              </span>
+            )}
+            {subs.length > 0 && (
+              <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                {doneCount}/{subs.length} subtasks
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowSubs(!showSubs); }}
+          className="p-2 hover:bg-slate-100 rounded-xl text-slate-500"
+          title={showSubs ? "Hide subtasks" : "Show subtasks"}
+        >
+          <ChevronDown className={`w-4 h-4 transition-transform ${showSubs ? "rotate-180" : ""}`} />
+        </button>
+        {canEdit && (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); onEditMilestone && onEditMilestone(m); }} className="p-2 hover:bg-blue-50 rounded-xl text-blue-600" title="Edit">
+              <Edit3 className="w-4 h-4" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onDeleteMilestone && onDeleteMilestone(m.id); }} className="p-2 hover:bg-rose-50 rounded-xl text-rose-500" title="Delete">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {showSubs && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-slate-100 bg-slate-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 space-y-2">
+              {subs.map(s => (
+                <div key={s.id} className="flex items-center gap-2 px-2">
+                  <input
+                    type="checkbox"
+                    checked={s.done}
+                    onChange={() => onToggleSubtask(s.id)}
+                    className="w-4 h-4 rounded accent-purple-600 cursor-pointer"
+                  />
+                  <span className={`flex-1 text-sm ${s.done ? "line-through text-slate-400" : "text-slate-700"}`}>{s.name}</span>
+                  {canEdit && (
+                    <button onClick={() => onDeleteSubtask(s.id)} className="text-slate-400 hover:text-rose-500">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {canEdit && (
+                <form onSubmit={submitSub} className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={newSub}
+                    onChange={(e) => setNewSub(e.target.value)}
+                    placeholder="+ Add subtask..."
+                    className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:border-purple-500 bg-white"
+                  />
+                  <button type="submit" className="px-3 py-2 text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:opacity-90">
+                    Add
+                  </button>
+                </form>
+              )}
+              {subs.length === 0 && !canEdit && (
+                <p className="text-xs text-slate-400 text-center py-2">No subtasks yet</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function VibrantPillarCard({ pillar, milestones, subtasks = [], onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone, isExpanded, onToggle, onEdit, onDelete, onShare, canEdit }) {
   const progress = pillar.progress_override ?? calculateProgress(milestones);
   const status = determineStatus(pillar.due_date, progress);
   const cfg = STATUS_CONFIG[status];
@@ -435,35 +545,21 @@ function VibrantPillarCard({ pillar, milestones, isExpanded, onToggle, onEdit, o
                     <div className="space-y-2">
                       {milestones.map((m, idx) => {
                         const mCfg = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
+                        const mSubs = subtasks.filter(s => s.milestone_id === m.id);
                         return (
-                          <motion.div
+                          <MilestoneRow
                             key={m.id}
-                            initial={{ x: -20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            transition={{ delay: 0.4 + idx * 0.05 }}
-                            whileHover={{ scale: 1.02, x: 4 }}
-                            className="flex items-start gap-3 p-4 bg-white rounded-2xl shadow-md hover:shadow-lg transition-all border border-slate-100"
-                          >
-                            <div className={`p-2 rounded-xl bg-gradient-to-br ${mCfg.gradient} shadow-md`}>
-                              <div className="text-white">
-                                {mCfg.icon}
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sm text-slate-900 mb-1">{m.name}</p>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-xs px-3 py-1 rounded-full font-semibold ${mCfg.badge}`}>
-                                  {mCfg.label}
-                                </span>
-                                {m.due_date && (
-                                  <span className="text-xs text-slate-500 flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {formatDate(m.due_date)}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </motion.div>
+                            m={m}
+                            idx={idx}
+                            mCfg={mCfg}
+                            subs={mSubs}
+                            canEdit={canEdit}
+                            onCreateSubtask={onCreateSubtask}
+                            onToggleSubtask={onToggleSubtask}
+                            onDeleteSubtask={onDeleteSubtask}
+                            onEditMilestone={onEditMilestone}
+                            onDeleteMilestone={onDeleteMilestone}
+                          />
                         );
                       })}
                     </div>
@@ -764,6 +860,7 @@ export default function App() {
   const [profiles, setProfiles] = useState([]);
   const [pillars, setPillars] = useState([]);
   const [milestones, setMilestones] = useState([]);
+  const [subtasks, setSubtasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedPillar, setExpandedPillar] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -796,12 +893,15 @@ export default function App() {
     if (demoMode || !user || !supabase) return;
     (async () => {
       setLoading(true);
-      const [profilesRes, pillarsRes, milestonesRes] = await Promise.all([
+      const [profilesRes, pillarsRes, milestonesRes, subtasksRes] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("pillars").select("*"),
-        supabase.from("milestones").select("*")
+        supabase.from("milestones").select("*"),
+        supabase.from("subtasks").select("*").order("sort_order", { ascending: true })
       ]);
-      setProfiles(profilesRes.data || []); setPillars(pillarsRes.data || []); setMilestones(milestonesRes.data || []); setLoading(false);
+      setProfiles(profilesRes.data || []); setPillars(pillarsRes.data || []); setMilestones(milestonesRes.data || []);
+      setSubtasks(subtasksRes.error ? [] : (subtasksRes.data || []));
+      setLoading(false);
     })();
   }, [user, demoMode]);
 
@@ -863,6 +963,39 @@ export default function App() {
       const { error } = await supabase.from("milestones").delete().eq("id", id);
       if (error) { console.error("Milestone delete failed:", error); alert(`Could not delete: ${error.message}`); return; }
       setMilestones(milestones.filter(m => m.id !== id));
+    }
+  };
+
+  // ─── Subtask handlers ──────────────────────────────────────────────────────
+  const handleCreateSubtask = async (milestoneId, name) => {
+    const trimmed = (name || "").trim();
+    if (!milestoneId || !trimmed) return;
+    const payload = { milestone_id: milestoneId, name: trimmed, done: false, sort_order: subtasks.filter(s => s.milestone_id === milestoneId).length };
+    if (demoMode) {
+      setSubtasks([...subtasks, { ...payload, id: `s${Date.now()}` }]);
+    } else if (supabase) {
+      const { data: inserted, error } = await supabase.from("subtasks").insert([payload]).select().single();
+      if (error) { console.error("Subtask insert failed:", error); alert(`Could not add subtask: ${error.message}`); return; }
+      if (inserted) setSubtasks([...subtasks, inserted]);
+    }
+  };
+
+  const handleToggleSubtask = async (id) => {
+    const s = subtasks.find(x => x.id === id);
+    if (!s) return;
+    const nextDone = !s.done;
+    setSubtasks(subtasks.map(x => x.id === id ? { ...x, done: nextDone } : x));
+    if (!demoMode && supabase) {
+      const { error } = await supabase.from("subtasks").update({ done: nextDone }).eq("id", id);
+      if (error) { console.error("Subtask toggle failed:", error); }
+    }
+  };
+
+  const handleDeleteSubtask = async (id) => {
+    setSubtasks(subtasks.filter(s => s.id !== id));
+    if (!demoMode && supabase) {
+      const { error } = await supabase.from("subtasks").delete().eq("id", id);
+      if (error) { console.error("Subtask delete failed:", error); }
     }
   };
 
@@ -979,7 +1112,7 @@ export default function App() {
             const pillarMilestones = milestones.filter(m => m.pillar_id === pillar.id);
             const canEdit = pillar.owner_id === user.id || isAdmin;
             return (
-              <VibrantPillarCard key={pillar.id} pillar={pillar} milestones={pillarMilestones} isExpanded={expandedPillar === pillar.id} onToggle={() => setExpandedPillar(expandedPillar === pillar.id ? null : pillar.id)} onEdit={() => { setEditingPillar(pillar); setShowPillarForm(true); }} onDelete={() => handleDeletePillar(pillar.id)} onShare={() => {}} canEdit={canEdit} />
+              <VibrantPillarCard key={pillar.id} pillar={pillar} milestones={pillarMilestones} subtasks={subtasks} onCreateSubtask={handleCreateSubtask} onToggleSubtask={handleToggleSubtask} onDeleteSubtask={handleDeleteSubtask} onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }} onDeleteMilestone={handleDeleteMilestone} isExpanded={expandedPillar === pillar.id} onToggle={() => setExpandedPillar(expandedPillar === pillar.id ? null : pillar.id)} onEdit={() => { setEditingPillar(pillar); setShowPillarForm(true); }} onDelete={() => handleDeletePillar(pillar.id)} onShare={() => {}} canEdit={canEdit} />
             );
           })
         )}
