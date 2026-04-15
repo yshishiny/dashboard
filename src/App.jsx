@@ -849,85 +849,481 @@ function VibrantAuthScreen({ onDemoMode, onAuthenticated }) {
 }
 
 // ─── Simple Forms (using existing BottomSheet) ───────────────────────────────
+function ModernModal({ isOpen, onClose, title, subtitle, accent = "from-slate-800 to-slate-900", children }) {
+  if (!isOpen) return null;
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4"
+      >
+        <motion.div
+          initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+          transition={{ type: "spring", damping: 24, stiffness: 260 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white w-full md:max-w-lg rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        >
+          <div className={`bg-gradient-to-r ${accent} px-6 py-5 flex items-start justify-between`}>
+            <div>
+              <h2 className="text-white text-xl font-black tracking-tight">{title}</h2>
+              {subtitle && <p className="text-white/70 text-xs font-semibold mt-1">{subtitle}</p>}
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-white/80 hover:text-white transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 overflow-y-auto">{children}</div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+const CATEGORY_OPTIONS = [
+  { v: "other", label: "General" },
+  { v: "paper", label: "Paper" },
+  { v: "thesis", label: "Thesis" },
+  { v: "project", label: "Project" },
+  { v: "report", label: "Report" },
+];
+
 function PillarForm({ isOpen, onClose, onSubmit, initialData }) {
-  const [formData, setFormData] = useState({ title: "", objective: "", target: "", due_date: "", progress_override: "" });
+  const [formData, setFormData] = useState({ title: "", objective: "", target: "", category: "other", start_date: "", due_date: "", progress_override: "" });
 
   useEffect(() => {
     if (initialData) {
-      setFormData({ title: initialData.title || "", objective: initialData.objective || "", target: initialData.target || "", due_date: initialData.due_date || "", progress_override: initialData.progress_override ?? "" });
+      setFormData({
+        title: initialData.title || "",
+        objective: initialData.objective || "",
+        target: initialData.target || "",
+        category: initialData.category || "other",
+        start_date: initialData.start_date || "",
+        due_date: initialData.due_date || "",
+        progress_override: initialData.progress_override ?? "",
+      });
     } else {
-      setFormData({ title: "", objective: "", target: "", due_date: "", progress_override: "" });
+      setFormData({ title: "", objective: "", target: "", category: "other", start_date: "", due_date: "", progress_override: "" });
     }
   }, [initialData, isOpen]);
 
+  const input = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800 focus:bg-white focus:ring-2 focus:ring-slate-200 text-sm font-medium transition-all placeholder:text-slate-400";
+  const label = "block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5";
+
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={initialData ? "Edit Pillar" : "✨ New Pillar"}>
+    <ModernModal isOpen={isOpen} onClose={onClose} title={initialData ? "Edit Pillar" : "New Pillar"} subtitle={initialData ? "Update pillar details" : "A pillar is a major area of work (e.g. a paper, thesis, project)"} accent="from-violet-600 to-indigo-700">
       <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); onClose(); }} className="space-y-4">
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Title *</label>
-          <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Research Paper" required className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium transition-all" />
+          <label className={label}>Title</label>
+          <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g. Research Paper on Smart Hotels" required className={input} autoFocus />
         </div>
+
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Objective</label>
-          <textarea value={formData.objective} onChange={(e) => setFormData({ ...formData, objective: e.target.value })} placeholder="What are you trying to achieve?" rows="3" className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base resize-none font-medium transition-all" />
+          <label className={label}>Category</label>
+          <div className="flex gap-2 flex-wrap">
+            {CATEGORY_OPTIONS.map(c => (
+              <button type="button" key={c.v} onClick={() => setFormData({ ...formData, category: c.v })}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border ${formData.category === c.v ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                {c.label}
+              </button>
+            ))}
+          </div>
         </div>
+
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Target</label>
-          <textarea value={formData.target} onChange={(e) => setFormData({ ...formData, target: e.target.value })} placeholder="Concrete deliverable" rows="3" className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base resize-none font-medium transition-all" />
+          <label className={label}>Objective</label>
+          <textarea value={formData.objective} onChange={(e) => setFormData({ ...formData, objective: e.target.value })} placeholder="What are you trying to achieve?" rows="2" className={input + " resize-none"} />
         </div>
+
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Due Date</label>
-          <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium transition-all" />
+          <label className={label}>Target / Deliverable</label>
+          <textarea value={formData.target} onChange={(e) => setFormData({ ...formData, target: e.target.value })} placeholder="Concrete outcome" rows="2" className={input + " resize-none"} />
         </div>
-        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all mt-6">
-          {initialData ? "Update Pillar" : "Create Pillar"}
-        </motion.button>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={label}>Start</label>
+            <input type="date" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className={input} />
+          </div>
+          <div>
+            <label className={label}>Due</label>
+            <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className={input} />
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">
+            Cancel
+          </button>
+          <button type="submit" className="flex-[2] py-3 rounded-xl font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-700 hover:shadow-lg transition-all">
+            {initialData ? "Save Changes" : "Create Pillar"}
+          </button>
+        </div>
       </form>
-    </BottomSheet>
+    </ModernModal>
   );
 }
 
 function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData }) {
+  const isEditing = initialData && !initialData.__isNew && initialData.id;
   const [formData, setFormData] = useState({ pillar_id: "", name: "", status: "not_started", due_date: "", notes: "" });
   useEffect(() => {
     if (initialData) {
-      setFormData({ pillar_id: initialData.pillar_id || "", name: initialData.name || "", status: initialData.status || "not_started", due_date: initialData.due_date || "", notes: initialData.notes || "" });
+      setFormData({
+        pillar_id: initialData.pillar_id || pillars[0]?.id || "",
+        name: initialData.name || "",
+        status: initialData.status || "not_started",
+        due_date: initialData.due_date || "",
+        notes: initialData.notes || "",
+      });
     } else {
       setFormData({ pillar_id: pillars[0]?.id || "", name: "", status: "not_started", due_date: "", notes: "" });
     }
   }, [initialData, pillars, isOpen]);
 
+  const input = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800 focus:bg-white focus:ring-2 focus:ring-slate-200 text-sm font-medium transition-all placeholder:text-slate-400";
+  const label = "block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5";
+
+  const STATUS_OPTS = [
+    { v: "not_started", label: "Upcoming", tone: "bg-slate-100 text-slate-700 border-slate-300" },
+    { v: "in_progress", label: "In Progress", tone: "bg-blue-100 text-blue-700 border-blue-300" },
+    { v: "blocked", label: "Blocked", tone: "bg-rose-100 text-rose-700 border-rose-300" },
+    { v: "done", label: "Done", tone: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+  ];
+
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={initialData ? "Edit Milestone" : "✨ New Milestone"}>
+    <ModernModal isOpen={isOpen} onClose={onClose} title={isEditing ? "Edit Milestone" : "New Milestone"} subtitle="A concrete step toward completing a pillar" accent="from-slate-800 to-slate-900">
       <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); onClose(); }} className="space-y-4">
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Pillar *</label>
-          <select value={formData.pillar_id} onChange={(e) => setFormData({ ...formData, pillar_id: e.target.value })} required className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium">
+          <label className={label}>Pillar</label>
+          <select value={formData.pillar_id} onChange={(e) => setFormData({ ...formData, pillar_id: e.target.value })} required className={input}>
             {pillars.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
           </select>
         </div>
+
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Name *</label>
-          <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Literature Review" required className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium" />
+          <label className={label}>Name</label>
+          <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Literature Review" required className={input} autoFocus />
         </div>
+
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Status</label>
-          <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium">
-            <option value="not_started">Upcoming</option>
-            <option value="in_progress">In Progress</option>
-            <option value="blocked">Blocked</option>
-            <option value="done">Done</option>
-          </select>
+          <label className={label}>Status</label>
+          <div className="flex gap-2 flex-wrap">
+            {STATUS_OPTS.map(s => (
+              <button key={s.v} type="button" onClick={() => setFormData({ ...formData, status: s.v })}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.status === s.v ? s.tone : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
+
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Due Date</label>
-          <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium" />
+          <label className={label}>Due Date</label>
+          <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className={input} />
         </div>
-        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all mt-6">
-          {initialData ? "Update Milestone" : "Create Milestone"}
-        </motion.button>
+
+        <div>
+          <label className={label}>Notes</label>
+          <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Anything worth remembering…" rows="2" className={input + " resize-none"} />
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">
+            Cancel
+          </button>
+          <button type="submit" className="flex-[2] py-3 rounded-xl font-bold text-white bg-gradient-to-r from-slate-800 to-slate-900 hover:shadow-lg transition-all">
+            {isEditing ? "Save Changes" : "Create Milestone"}
+          </button>
+        </div>
       </form>
-    </BottomSheet>
+    </ModernModal>
+  );
+}
+
+// ─── Board View (Kanban by pillar, grouped by category) ──────────────────────
+const COLUMN_PALETTE = [
+  { band: "from-sky-500 to-blue-600",       col: "border-sky-300 bg-sky-50/60",       head: "bg-sky-500",      text: "text-sky-50" },
+  { band: "from-violet-500 to-purple-600",  col: "border-violet-300 bg-violet-50/60", head: "bg-violet-500",   text: "text-violet-50" },
+  { band: "from-emerald-500 to-teal-600",   col: "border-emerald-300 bg-emerald-50/60", head: "bg-emerald-500", text: "text-emerald-50" },
+  { band: "from-amber-500 to-orange-600",   col: "border-amber-300 bg-amber-50/60",   head: "bg-amber-500",    text: "text-amber-50" },
+  { band: "from-rose-500 to-pink-600",      col: "border-rose-300 bg-rose-50/60",     head: "bg-rose-500",     text: "text-rose-50" },
+  { band: "from-indigo-500 to-blue-700",    col: "border-indigo-300 bg-indigo-50/60", head: "bg-indigo-500",   text: "text-indigo-50" },
+];
+const categoryLabel = (c) => {
+  if (!c || c === "other") return "Uncategorised";
+  return c.replace(/_/g, " ").replace(/\b\w/g, s => s.toUpperCase());
+};
+
+function BoardView({ pillars, milestones, subtasks, attachments, userId, isAdmin, onEditPillar, onEditMilestone, onCycleMilestoneStatus, onAddMilestone }) {
+  // Group pillars by category
+  const groups = pillars.reduce((acc, p) => {
+    const key = p.category || "other";
+    (acc[key] = acc[key] || []).push(p);
+    return acc;
+  }, {});
+  const orderedKeys = Object.keys(groups).sort();
+
+  return (
+    <div className="overflow-x-auto px-4">
+      <div className="min-w-max space-y-6 pb-4">
+        {orderedKeys.map((cat, catIdx) => {
+          const palette = COLUMN_PALETTE[catIdx % COLUMN_PALETTE.length];
+          const colsInGroup = groups[cat];
+          return (
+            <div key={cat} className="space-y-2">
+              {/* Category band */}
+              <div className={`inline-flex items-center gap-3 px-5 py-2.5 rounded-xl bg-gradient-to-r ${palette.band} shadow-lg`}>
+                <Sparkles className="w-4 h-4 text-white/80" />
+                <span className="text-white font-black tracking-wide text-sm uppercase">{categoryLabel(cat)}</span>
+                <span className="text-white/80 text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">{colsInGroup.length}</span>
+              </div>
+
+              {/* Columns */}
+              <div className="flex gap-4">
+                {colsInGroup.map((pillar, idx) => {
+                  const p2 = COLUMN_PALETTE[(catIdx + idx) % COLUMN_PALETTE.length];
+                  const pMilestones = milestones.filter(m => m.pillar_id === pillar.id);
+                  const progress = pillar.progress_override ?? calculateProgress(pMilestones);
+                  const canEdit = pillar.owner_id === userId || isAdmin;
+                  return (
+                    <div key={pillar.id} className={`w-72 flex-shrink-0 rounded-2xl border-2 ${p2.col} overflow-hidden shadow-md hover:shadow-xl transition-shadow`}>
+                      {/* Column header */}
+                      <div className={`${p2.head} px-4 py-3 flex items-center justify-between`}>
+                        <button onClick={() => canEdit && onEditPillar(pillar)} className="flex-1 text-left">
+                          <h3 className={`${p2.text} font-black text-base leading-tight truncate`}>{pillar.title}</h3>
+                          <div className={`${p2.text} text-[10px] font-bold opacity-90 mt-0.5 flex items-center gap-2`}>
+                            <span>{pMilestones.length} milestones</span>
+                            <span>•</span>
+                            <span>{progress}%</span>
+                          </div>
+                        </button>
+                      </div>
+
+                      {/* Progress strip */}
+                      <div className="h-1.5 bg-white/40">
+                        <div className="h-full bg-white/90" style={{ width: `${progress}%` }} />
+                      </div>
+
+                      {/* Cards */}
+                      <div className="p-3 space-y-2 min-h-[200px] max-h-[65vh] overflow-y-auto">
+                        {pMilestones.length === 0 && (
+                          <div className="text-center py-8 text-slate-400 text-xs font-semibold">No milestones yet</div>
+                        )}
+                        {pMilestones.map(m => {
+                          const mCfg = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
+                          const mSubs = subtasks.filter(s => s.milestone_id === m.id);
+                          const mAtts = attachments.filter(a => a.milestone_id === m.id);
+                          const isOverdue = m.due_date && m.status !== "done" && new Date(m.due_date) < new Date();
+                          return (
+                            <div key={m.id} className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md border border-slate-100 transition-all group">
+                              <div className="flex items-start gap-2 mb-2">
+                                <button
+                                  onClick={() => canEdit && onCycleMilestoneStatus(m.id)}
+                                  className={`p-1.5 rounded-lg bg-gradient-to-br ${mCfg.gradient} flex-shrink-0 ${canEdit ? "hover:scale-110 transition-transform cursor-pointer" : ""}`}
+                                  title={canEdit ? "Click to cycle status" : mCfg.label}
+                                >
+                                  <div className="text-white w-3 h-3">{mCfg.icon}</div>
+                                </button>
+                                <button onClick={() => canEdit && onEditMilestone(m)} className="flex-1 text-left min-w-0">
+                                  <p className="font-bold text-sm text-slate-800 leading-snug line-clamp-2">{m.name}</p>
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${mCfg.badge}`}>{mCfg.label}</span>
+                                {m.due_date && (
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${isOverdue ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600"}`}>
+                                    <Calendar className="w-2.5 h-2.5" />
+                                    {formatDate(m.due_date)}
+                                  </span>
+                                )}
+                                {mSubs.length > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-purple-50 text-purple-700 inline-flex items-center gap-1">
+                                    <ListTodo className="w-2.5 h-2.5" /> {mSubs.filter(s=>s.done).length}/{mSubs.length}
+                                  </span>
+                                )}
+                                {mAtts.length > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-indigo-50 text-indigo-700 inline-flex items-center gap-1">
+                                    <Paperclip className="w-2.5 h-2.5" /> {mAtts.length}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {canEdit && (
+                          <button
+                            onClick={() => onAddMilestone(pillar.id)}
+                            className="w-full mt-1 py-2 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 hover:border-slate-500 hover:text-slate-700 hover:bg-white transition-all text-xs font-bold inline-flex items-center justify-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add milestone
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Gantt / Timeline View ───────────────────────────────────────────────────
+function GanttView({ pillars, milestones }) {
+  // Collect all dated items
+  const items = [];
+  pillars.forEach((p, pi) => {
+    const palette = COLUMN_PALETTE[pi % COLUMN_PALETTE.length];
+    const pMilestones = milestones.filter(m => m.pillar_id === p.id);
+    const dates = [p.start_date, p.due_date, ...pMilestones.flatMap(m => [m.due_date])].filter(Boolean);
+    items.push({ type: "pillar", pillar: p, palette, start: p.start_date, end: p.due_date, milestones: pMilestones });
+  });
+
+  // Compute min/max range
+  const allDates = [];
+  pillars.forEach(p => { if (p.start_date) allDates.push(new Date(p.start_date)); if (p.due_date) allDates.push(new Date(p.due_date)); });
+  milestones.forEach(m => { if (m.due_date) allDates.push(new Date(m.due_date)); });
+  if (allDates.length === 0) {
+    return (
+      <div className="px-4 text-center py-20">
+        <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+        <p className="text-slate-500 font-bold">Add due dates to pillars or milestones to see the timeline.</p>
+      </div>
+    );
+  }
+  const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+  const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+  // Pad ±7 days
+  minDate.setDate(minDate.getDate() - 7);
+  maxDate.setDate(maxDate.getDate() + 7);
+  const totalDays = Math.max(1, Math.ceil((maxDate - minDate) / 86400000));
+  const dayWidth = 18; // px per day
+  const chartWidth = totalDays * dayWidth;
+
+  const posFor = (d) => {
+    if (!d) return null;
+    const dd = new Date(d);
+    return Math.max(0, Math.round((dd - minDate) / 86400000)) * dayWidth;
+  };
+
+  // Month ticks
+  const months = [];
+  let cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  while (cur <= maxDate) {
+    months.push(new Date(cur));
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  const todayX = posFor(new Date());
+
+  const labelColWidth = 220;
+
+  return (
+    <div className="px-4">
+      <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+        {/* Scrollable timeline */}
+        <div className="overflow-x-auto">
+          <div style={{ width: labelColWidth + chartWidth }}>
+            {/* Month header */}
+            <div className="flex sticky top-0 z-10 bg-gradient-to-b from-slate-50 to-white border-b border-slate-200">
+              <div style={{ width: labelColWidth }} className="p-3 border-r border-slate-200">
+                <p className="text-xs font-black uppercase tracking-wider text-slate-500">Pillar / Milestone</p>
+              </div>
+              <div className="relative" style={{ width: chartWidth, height: 44 }}>
+                {months.map((m, i) => {
+                  const x = posFor(m);
+                  const nextX = i + 1 < months.length ? posFor(months[i + 1]) : chartWidth;
+                  return (
+                    <div key={i} className="absolute top-0 bottom-0 border-l border-slate-200 px-2 flex items-center" style={{ left: x, width: nextX - x }}>
+                      <span className="text-xs font-black text-slate-600">{m.toLocaleString("default", { month: "short" })} {m.getFullYear()}</span>
+                    </div>
+                  );
+                })}
+                {todayX !== null && (
+                  <div className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-20" style={{ left: todayX }} />
+                )}
+              </div>
+            </div>
+
+            {/* Rows */}
+            <div>
+              {items.map((it, idx) => {
+                const p = it.pillar;
+                const pStart = posFor(p.start_date);
+                const pEnd = posFor(p.due_date);
+                const hasPillarBar = pStart !== null && pEnd !== null && pEnd >= pStart;
+                return (
+                  <div key={p.id}>
+                    {/* Pillar row */}
+                    <div className="flex border-b border-slate-100 hover:bg-slate-50/50">
+                      <div style={{ width: labelColWidth }} className="p-3 border-r border-slate-200 flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${it.palette.band}`} />
+                        <span className="text-sm font-black text-slate-800 truncate">{p.title}</span>
+                      </div>
+                      <div className="relative" style={{ width: chartWidth, height: 44 }}>
+                        {/* Grid lines */}
+                        {months.map((m, i) => (
+                          <div key={i} className="absolute top-0 bottom-0 border-l border-slate-100" style={{ left: posFor(m) }} />
+                        ))}
+                        {todayX !== null && (
+                          <div className="absolute top-0 bottom-0 w-0.5 bg-rose-500/60 z-10" style={{ left: todayX }} />
+                        )}
+                        {hasPillarBar && (
+                          <div
+                            title={`${p.title}: ${formatDate(p.start_date)} → ${formatDate(p.due_date)}`}
+                            className={`absolute top-3 h-5 rounded-md bg-gradient-to-r ${it.palette.band} shadow-md flex items-center px-2`}
+                            style={{ left: pStart, width: Math.max(dayWidth, pEnd - pStart) }}
+                          >
+                            <span className="text-[10px] font-black text-white truncate">{p.title}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Milestone sub-rows */}
+                    {it.milestones.map(m => {
+                      const mCfg = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
+                      const mx = posFor(m.due_date);
+                      return (
+                        <div key={m.id} className="flex border-b border-slate-50 hover:bg-slate-50/30">
+                          <div style={{ width: labelColWidth }} className="pl-8 pr-3 py-2 border-r border-slate-200 flex items-center gap-2">
+                            <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-br ${mCfg.gradient}`} />
+                            <span className="text-xs font-semibold text-slate-600 truncate">{m.name}</span>
+                          </div>
+                          <div className="relative" style={{ width: chartWidth, height: 32 }}>
+                            {months.map((mo, i) => (
+                              <div key={i} className="absolute top-0 bottom-0 border-l border-slate-50" style={{ left: posFor(mo) }} />
+                            ))}
+                            {todayX !== null && (
+                              <div className="absolute top-0 bottom-0 w-0.5 bg-rose-500/40" style={{ left: todayX }} />
+                            )}
+                            {mx !== null && (
+                              <div
+                                title={`${m.name}: ${formatDate(m.due_date)}`}
+                                className={`absolute top-2 h-4 w-4 rounded-full bg-gradient-to-br ${mCfg.gradient} shadow ring-2 ring-white`}
+                                style={{ left: mx - 8 }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+      <p className="text-xs text-slate-500 text-center mt-3 font-semibold">
+        <span className="inline-block w-3 h-0.5 bg-rose-500 align-middle mr-1" /> Today
+        <span className="mx-3">•</span>
+        Bars = pillars (start → due) · Dots = milestone due dates
+      </p>
+    </div>
   );
 }
 
@@ -944,6 +1340,10 @@ export default function App() {
   const [expandedPillar, setExpandedPillar] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem("viewMode") || "board"; } catch { return "board"; }
+  });
+  useEffect(() => { try { localStorage.setItem("viewMode", viewMode); } catch {} }, [viewMode]);
   const [showPillarForm, setShowPillarForm] = useState(false);
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -1230,7 +1630,23 @@ export default function App() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search pillars & milestones... (press N for new)" className="w-full pl-12 pr-4 py-4 bg-white border-2 border-purple-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium transition-all shadow-sm" />
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 items-center">
+            <div className="inline-flex items-center bg-white rounded-full p-1 shadow-sm border border-slate-200 flex-shrink-0">
+              {[
+                { id: "cards", label: "Cards" },
+                { id: "board", label: "Board" },
+                { id: "gantt", label: "Timeline" },
+              ].map(v => (
+                <button
+                  key={v.id}
+                  onClick={() => setViewMode(v.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === v.id ? "bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow" : "text-slate-500 hover:text-slate-800"}`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <div className="w-px h-6 bg-slate-200 flex-shrink-0" />
             {["all", "Critical", "At Risk", "On Track"].map(status => (
               <motion.button key={status} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setStatusFilter(status)} className={`px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all shadow-md ${statusFilter === status ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white" : "bg-white text-slate-600 border-2 border-purple-200"}`}>
                 {status === "all" ? "All" : status}
@@ -1241,20 +1657,37 @@ export default function App() {
       </div>
 
       {/* Pillars */}
-      <div className="px-4 py-6 space-y-4 pb-24">
+      <div className={viewMode === "cards" ? "px-4 py-6 space-y-4 pb-24" : "py-6 pb-24"}>
         {filteredPillars.length === 0 ? (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20">
             <Sparkles className="w-20 h-20 text-purple-300 mx-auto mb-4" />
             <p className="text-slate-600 font-bold text-lg">No pillars found</p>
           </motion.div>
+        ) : viewMode === "board" ? (
+          <BoardView
+            pillars={filteredPillars}
+            milestones={milestones}
+            subtasks={subtasks}
+            attachments={attachments}
+            userId={user?.id}
+            isAdmin={isAdmin}
+            onEditPillar={(p) => { setEditingPillar(p); setShowPillarForm(true); }}
+            onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
+            onCycleMilestoneStatus={handleCycleMilestoneStatus}
+            onAddMilestone={(pillarId) => { setEditingMilestone({ pillar_id: pillarId, __isNew: true }); setShowMilestoneForm(true); }}
+          />
+        ) : viewMode === "gantt" ? (
+          <GanttView pillars={filteredPillars} milestones={milestones} />
         ) : (
-          filteredPillars.map(pillar => {
-            const pillarMilestones = milestones.filter(m => m.pillar_id === pillar.id);
-            const canEdit = pillar.owner_id === user.id || isAdmin;
-            return (
-              <VibrantPillarCard key={pillar.id} pillar={pillar} milestones={pillarMilestones} subtasks={subtasks} onCreateSubtask={handleCreateSubtask} onToggleSubtask={handleToggleSubtask} onDeleteSubtask={handleDeleteSubtask} onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }} onDeleteMilestone={handleDeleteMilestone} onCycleMilestoneStatus={handleCycleMilestoneStatus} attachments={attachments} onUploadAttachment={handleUploadAttachment} onOpenAttachment={handleOpenAttachment} onDeleteAttachment={handleDeleteAttachment} isExpanded={expandedPillar === pillar.id} onToggle={() => setExpandedPillar(expandedPillar === pillar.id ? null : pillar.id)} onEdit={() => { setEditingPillar(pillar); setShowPillarForm(true); }} onDelete={() => handleDeletePillar(pillar.id)} onShare={() => {}} canEdit={canEdit} />
-            );
-          })
+          <div className="px-4 space-y-4">
+            {filteredPillars.map(pillar => {
+              const pillarMilestones = milestones.filter(m => m.pillar_id === pillar.id);
+              const canEdit = pillar.owner_id === user.id || isAdmin;
+              return (
+                <VibrantPillarCard key={pillar.id} pillar={pillar} milestones={pillarMilestones} subtasks={subtasks} onCreateSubtask={handleCreateSubtask} onToggleSubtask={handleToggleSubtask} onDeleteSubtask={handleDeleteSubtask} onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }} onDeleteMilestone={handleDeleteMilestone} onCycleMilestoneStatus={handleCycleMilestoneStatus} attachments={attachments} onUploadAttachment={handleUploadAttachment} onOpenAttachment={handleOpenAttachment} onDeleteAttachment={handleDeleteAttachment} isExpanded={expandedPillar === pillar.id} onToggle={() => setExpandedPillar(expandedPillar === pillar.id ? null : pillar.id)} onEdit={() => { setEditingPillar(pillar); setShowPillarForm(true); }} onDelete={() => handleDeletePillar(pillar.id)} onShare={() => {}} canEdit={canEdit} />
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -1264,7 +1697,7 @@ export default function App() {
       </motion.button>
 
       <PillarForm isOpen={showPillarForm} onClose={() => { setShowPillarForm(false); setEditingPillar(null); }} onSubmit={editingPillar ? handleUpdatePillar : handleCreatePillar} initialData={editingPillar} />
-      <MilestoneForm isOpen={showMilestoneForm} onClose={() => { setShowMilestoneForm(false); setEditingMilestone(null); }} onSubmit={editingMilestone ? handleUpdateMilestone : handleCreateMilestone} pillars={pillars} initialData={editingMilestone} />
+      <MilestoneForm isOpen={showMilestoneForm} onClose={() => { setShowMilestoneForm(false); setEditingMilestone(null); }} onSubmit={editingMilestone && editingMilestone.id && !editingMilestone.__isNew ? handleUpdateMilestone : handleCreateMilestone} pillars={pillars} initialData={editingMilestone} />
 
       <AnimatePresence>
         {showMenu && (
