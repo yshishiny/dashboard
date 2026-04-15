@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  AlertTriangle, BarChart3, Calendar, CheckCircle2, ChevronDown, ChevronRight, ChevronUp,
+  AlertTriangle, BarChart3, Bell, BellRing, Calendar, CheckCircle2, ChevronDown, ChevronRight, ChevronUp,
   Clock, Crown, Edit3, Eye, Filter, Flag, ListTodo, Loader2, LogOut, Mail, Menu,
   MoreVertical, Phone, Plus, Search, Settings, Shield, Share2, ShieldCheck,
   Paperclip, Sparkles, Target, Trash2, TrendingUp, Upload, User, UserPlus, Users, X, Zap
@@ -1951,6 +1951,282 @@ function GanttView({ pillars, milestones }) {
   );
 }
 
+// ─── Notification Bell ───────────────────────────────────────────────────────
+function computeAlerts(milestones, pillars) {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const in3 = new Date(startOfToday); in3.setDate(in3.getDate() + 3);
+  const sevenDaysAgo = new Date(startOfToday); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const overdue = [], dueSoon = [], stale = [];
+  const perDay = new Map();
+
+  milestones.forEach(m => {
+    if (m.status === "done") return;
+    if (m.due_date) {
+      const d = new Date(m.due_date);
+      if (d < startOfToday) overdue.push(m);
+      else if (d < in3) dueSoon.push(m);
+
+      // Day overload tracking
+      const key = m.due_date.slice(0, 10);
+      if (!perDay.has(key)) perDay.set(key, []);
+      perDay.get(key).push(m);
+    }
+    if (m.status === "blocked") {
+      const ref = new Date(m.updated_at || m.created_at || startOfToday);
+      if (ref < sevenDaysAgo) stale.push(m);
+    }
+  });
+
+  // Day-overload: 3+ non-done items on same date
+  const overloaded = [];
+  perDay.forEach((items, key) => {
+    if (items.length >= 3) overloaded.push({ date: key, items });
+  });
+  overloaded.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Pillar past due with <100% progress
+  const pillarSlips = pillars.filter(p => {
+    if (!p.due_date) return false;
+    const d = new Date(p.due_date);
+    if (d >= startOfToday) return false;
+    const pm = milestones.filter(x => x.pillar_id === p.id);
+    if (!pm.length) return true;
+    const done = pm.filter(x => x.status === "done").length;
+    return done < pm.length;
+  });
+
+  overdue.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+  dueSoon.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+
+  const total = overdue.length + dueSoon.length + stale.length + overloaded.length + pillarSlips.length;
+  return { overdue, dueSoon, stale, overloaded, pillarSlips, total };
+}
+
+function NotificationBell({ milestones, pillars, onJumpToMilestone, onJumpToPillar, collapsed = false }) {
+  const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("alertsDismissed") || "[]")); } catch { return new Set(); }
+  });
+  const persistDismissed = (next) => {
+    setDismissed(next);
+    try { localStorage.setItem("alertsDismissed", JSON.stringify([...next])); } catch {}
+  };
+  const dismiss = (key) => {
+    const n = new Set(dismissed); n.add(key); persistDismissed(n);
+  };
+  const clearAll = () => persistDismissed(new Set());
+
+  const alerts = computeAlerts(milestones, pillars);
+
+  // Apply dismissal filter
+  const filterKey = (prefix, id) => `${prefix}:${id}`;
+  const overdue = alerts.overdue.filter(m => !dismissed.has(filterKey("overdue", m.id)));
+  const dueSoon = alerts.dueSoon.filter(m => !dismissed.has(filterKey("soon", m.id)));
+  const stale = alerts.stale.filter(m => !dismissed.has(filterKey("stale", m.id)));
+  const overloaded = alerts.overloaded.filter(o => !dismissed.has(filterKey("overload", o.date)));
+  const pillarSlips = alerts.pillarSlips.filter(p => !dismissed.has(filterKey("pslip", p.id)));
+  const unreadCount = overdue.length + dueSoon.length + stale.length + overloaded.length + pillarSlips.length;
+
+  const pillarTitle = (pid) => pillars.find(p => p.id === pid)?.title || "—";
+  const fmt = (d) => d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—";
+  const daysFrom = (d) => {
+    if (!d) return null;
+    const now = new Date(); const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((new Date(d) - s) / 86400000);
+  };
+
+  return (
+    <div className="relative">
+      <motion.button
+        whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+        onClick={() => setOpen(o => !o)}
+        className={`relative hover:bg-purple-100 rounded-xl transition-all shrink-0 ${collapsed ? "p-2" : "p-2.5"}`}
+      >
+        {unreadCount > 0
+          ? <BellRing className={`${collapsed ? "w-5 h-5" : "w-6 h-6"} text-purple-600`} />
+          : <Bell className={`${collapsed ? "w-5 h-5" : "w-6 h-6"} text-purple-600`} />}
+        {unreadCount > 0 && (
+          <motion.span
+            initial={{ scale: 0 }} animate={{ scale: 1 }}
+            className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-white text-[10px] font-black flex items-center justify-center shadow-lg border-2 border-white"
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </motion.span>
+        )}
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.96 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 mt-2 w-[360px] max-h-[75vh] bg-white rounded-2xl shadow-2xl border border-purple-100 overflow-hidden z-50 flex flex-col"
+            >
+              <div className="p-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Alerts</div>
+                  <div className="font-black text-lg">{unreadCount} unread</div>
+                </div>
+                {unreadCount > 0 && (
+                  <button onClick={clearAll} className="text-[11px] font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full">
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                {unreadCount === 0 && (
+                  <div className="p-8 text-center">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
+                    <div className="text-sm font-bold text-slate-700">All clear</div>
+                    <div className="text-xs text-slate-500 mt-1">Nothing overdue, due soon, or blocked.</div>
+                  </div>
+                )}
+
+                {/* Overdue */}
+                {overdue.length > 0 && (
+                  <Section title="Overdue" tone="rose" count={overdue.length}>
+                    {overdue.map(m => {
+                      const d = daysFrom(m.due_date);
+                      return (
+                        <AlertRow
+                          key={`o-${m.id}`}
+                          dotClass="bg-rose-500"
+                          title={m.name}
+                          sub={`${pillarTitle(m.pillar_id)} · ${Math.abs(d)}d late`}
+                          meta={fmt(m.due_date)}
+                          onClick={() => { setOpen(false); onJumpToMilestone?.(m); }}
+                          onDismiss={() => dismiss(filterKey("overdue", m.id))}
+                        />
+                      );
+                    })}
+                  </Section>
+                )}
+
+                {/* Due soon */}
+                {dueSoon.length > 0 && (
+                  <Section title="Due Soon" tone="amber" count={dueSoon.length}>
+                    {dueSoon.map(m => {
+                      const d = daysFrom(m.due_date);
+                      return (
+                        <AlertRow
+                          key={`s-${m.id}`}
+                          dotClass="bg-amber-500"
+                          title={m.name}
+                          sub={`${pillarTitle(m.pillar_id)} · ${d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d}d`}`}
+                          meta={fmt(m.due_date)}
+                          onClick={() => { setOpen(false); onJumpToMilestone?.(m); }}
+                          onDismiss={() => dismiss(filterKey("soon", m.id))}
+                        />
+                      );
+                    })}
+                  </Section>
+                )}
+
+                {/* Blocked > 7 days */}
+                {stale.length > 0 && (
+                  <Section title="Stuck (blocked > 7d)" tone="slate" count={stale.length}>
+                    {stale.map(m => (
+                      <AlertRow
+                        key={`b-${m.id}`}
+                        dotClass="bg-slate-500"
+                        title={m.name}
+                        sub={pillarTitle(m.pillar_id)}
+                        meta="BLOCKED"
+                        onClick={() => { setOpen(false); onJumpToMilestone?.(m); }}
+                        onDismiss={() => dismiss(filterKey("stale", m.id))}
+                      />
+                    ))}
+                  </Section>
+                )}
+
+                {/* Day overload */}
+                {overloaded.length > 0 && (
+                  <Section title="Heavy Days (3+ items)" tone="violet" count={overloaded.length}>
+                    {overloaded.map(o => (
+                      <AlertRow
+                        key={`x-${o.date}`}
+                        dotClass="bg-violet-500"
+                        title={`${o.items.length} items due`}
+                        sub={o.items.slice(0, 3).map(i => i.name).join(" · ") + (o.items.length > 3 ? "…" : "")}
+                        meta={fmt(o.date)}
+                        onClick={() => { setOpen(false); onJumpToMilestone?.(o.items[0]); }}
+                        onDismiss={() => dismiss(filterKey("overload", o.date))}
+                      />
+                    ))}
+                  </Section>
+                )}
+
+                {/* Pillar slipping */}
+                {pillarSlips.length > 0 && (
+                  <Section title="Pillars Slipping" tone="orange" count={pillarSlips.length}>
+                    {pillarSlips.map(p => (
+                      <AlertRow
+                        key={`p-${p.id}`}
+                        dotClass="bg-orange-500"
+                        title={p.title}
+                        sub={`Due ${fmt(p.due_date)} · not complete`}
+                        meta="LATE"
+                        onClick={() => { setOpen(false); onJumpToPillar?.(p); }}
+                        onDismiss={() => dismiss(filterKey("pslip", p.id))}
+                      />
+                    ))}
+                  </Section>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Section({ title, tone, count, children }) {
+  const toneMap = {
+    rose: "text-rose-700 bg-rose-50",
+    amber: "text-amber-700 bg-amber-50",
+    slate: "text-slate-700 bg-slate-50",
+    violet: "text-violet-700 bg-violet-50",
+    orange: "text-orange-700 bg-orange-50",
+  };
+  return (
+    <div>
+      <div className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-wider flex items-center justify-between ${toneMap[tone]}`}>
+        <span>{title}</span>
+        <span className="opacity-70">{count}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AlertRow({ dotClass, title, sub, meta, onClick, onDismiss }) {
+  return (
+    <div className="px-4 py-2.5 hover:bg-purple-50/60 flex items-start gap-2 group">
+      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${dotClass}`} />
+      <button onClick={onClick} className="flex-1 min-w-0 text-left">
+        <div className="text-sm font-bold text-slate-800 truncate">{title}</div>
+        <div className="text-[11px] text-slate-500 truncate">{sub}</div>
+      </button>
+      <div className="text-[10px] font-black text-slate-400 tabular-nums shrink-0 mt-0.5">{meta}</div>
+      <button
+        onClick={(e) => { e.stopPropagation(); onDismiss?.(); }}
+        className="opacity-0 group-hover:opacity-100 transition p-1 -mr-1 rounded hover:bg-slate-200"
+        title="Dismiss"
+      >
+        <X className="w-3 h-3 text-slate-500" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 function AdminPage({ currentUserId, pillars, profiles, members, onRefreshAll }) {
   const [tab, setTab] = useState("users"); // "users" | "access"
@@ -2715,6 +2991,14 @@ export default function App() {
               <span className="text-[9px] font-bold text-white/80 uppercase tracking-wide">done</span>
             </div>
           )}
+
+          <NotificationBell
+            milestones={milestones}
+            pillars={pillars}
+            collapsed={headerCollapsed}
+            onJumpToMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
+            onJumpToPillar={(p) => { setExpandedPillar(p.id); setViewMode("cards"); }}
+          />
 
           <motion.button
             whileHover={{ scale: 1.05 }}
