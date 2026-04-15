@@ -2405,10 +2405,16 @@ function InviteUserModal({ onClose, onCreated }) {
         },
       });
       if (invErr) {
-        // FunctionsHttpError / FunctionsRelayError / FunctionsFetchError
-        const msg = invErr.context?.error || invErr.message || "Unknown error";
-        if (/not.?found|404/i.test(msg) || invErr.name === "FunctionsFetchError") {
-          throw new Error("Edge Function 'admin-create-user' is not deployed. Run: supabase functions deploy admin-create-user --no-verify-jwt");
+        // FunctionsHttpError exposes .context as a Response — parse the body.
+        let msg = invErr.message || "Unknown error";
+        try {
+          if (invErr.context && typeof invErr.context.json === "function") {
+            const body = await invErr.context.json();
+            msg = body?.error || body?.message || JSON.stringify(body);
+          }
+        } catch { /* body wasn't JSON */ }
+        if (invErr.name === "FunctionsFetchError") {
+          msg = "Edge Function 'admin-create-user' unreachable. Verify it's deployed.";
         }
         throw new Error(msg);
       }
