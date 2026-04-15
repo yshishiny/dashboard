@@ -40,25 +40,32 @@ const STATUS_CONFIG = {
 };
 
 const MILESTONE_STATUS = {
-  done: { 
-    label: "Done", 
+  done: {
+    label: "Done",
     gradient: "from-emerald-500 to-teal-600",
     badge: "bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700",
     icon: <CheckCircle2 className="w-4 h-4" />
   },
-  "in-progress": { 
-    label: "In Progress", 
+  in_progress: {
+    label: "In Progress",
     gradient: "from-blue-500 to-indigo-600",
     badge: "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700",
     icon: <TrendingUp className="w-4 h-4" />
   },
-  upcoming: { 
-    label: "Upcoming", 
+  not_started: {
+    label: "Upcoming",
     gradient: "from-slate-400 to-slate-500",
     badge: "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-600",
     icon: <Clock className="w-4 h-4" />
+  },
+  blocked: {
+    label: "Blocked",
+    gradient: "from-rose-500 to-red-600",
+    badge: "bg-gradient-to-r from-rose-100 to-red-100 text-rose-700",
+    icon: <Clock className="w-4 h-4" />
   }
 };
+const MILESTONE_STATUS_FALLBACK = MILESTONE_STATUS.not_started;
 
 // ─── Demo Data ────────────────────────────────────────────────────────────────
 const DEMO_PROFILES = [
@@ -89,11 +96,11 @@ const DEMO_PILLARS = [
 
 const DEMO_MILESTONES = [
   { id: "m1", pillar_id: "p1", name: "Literature Review", status: "done", due_date: "2026-04-15", notes: "" },
-  { id: "m2", pillar_id: "p1", name: "Methodology Draft", status: "in-progress", due_date: "2026-04-25", notes: "" },
-  { id: "m3", pillar_id: "p1", name: "Results Section", status: "upcoming", due_date: "2026-04-30", notes: "" },
+  { id: "m2", pillar_id: "p1", name: "Methodology Draft", status: "in_progress", due_date: "2026-04-25", notes: "" },
+  { id: "m3", pillar_id: "p1", name: "Results Section", status: "not_started", due_date: "2026-04-30", notes: "" },
   { id: "m4", pillar_id: "p2", name: "UI Design", status: "done", due_date: "2026-04-20", notes: "" },
-  { id: "m5", pillar_id: "p2", name: "Backend API", status: "in-progress", due_date: "2026-05-01", notes: "" },
-  { id: "m6", pillar_id: "p2", name: "Testing", status: "upcoming", due_date: "2026-05-10", notes: "" }
+  { id: "m5", pillar_id: "p2", name: "Backend API", status: "in_progress", due_date: "2026-05-01", notes: "" },
+  { id: "m6", pillar_id: "p2", name: "Testing", status: "not_started", due_date: "2026-05-10", notes: "" }
 ];
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -115,7 +122,7 @@ function calculateProgress(milestones) {
   if (!milestones || milestones.length === 0) return 0;
   const total = milestones.length;
   const done = milestones.filter(m => m.status === "done").length;
-  const inProgress = milestones.filter(m => m.status === "in-progress").length;
+  const inProgress = milestones.filter(m => m.status === "in_progress").length;
   return Math.round(((done + inProgress * 0.5) / total) * 100);
 }
 
@@ -427,7 +434,7 @@ function VibrantPillarCard({ pillar, milestones, isExpanded, onToggle, onEdit, o
                     </div>
                     <div className="space-y-2">
                       {milestones.map((m, idx) => {
-                        const mCfg = MILESTONE_STATUS[m.status];
+                        const mCfg = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
                         return (
                           <motion.div
                             key={m.id}
@@ -707,12 +714,12 @@ function PillarForm({ isOpen, onClose, onSubmit, initialData }) {
 }
 
 function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData }) {
-  const [formData, setFormData] = useState({ pillar_id: "", name: "", status: "upcoming", due_date: "", notes: "" });
+  const [formData, setFormData] = useState({ pillar_id: "", name: "", status: "not_started", due_date: "", notes: "" });
   useEffect(() => {
     if (initialData) {
-      setFormData({ pillar_id: initialData.pillar_id || "", name: initialData.name || "", status: initialData.status || "upcoming", due_date: initialData.due_date || "", notes: initialData.notes || "" });
+      setFormData({ pillar_id: initialData.pillar_id || "", name: initialData.name || "", status: initialData.status || "not_started", due_date: initialData.due_date || "", notes: initialData.notes || "" });
     } else {
-      setFormData({ pillar_id: pillars[0]?.id || "", name: "", status: "upcoming", due_date: "", notes: "" });
+      setFormData({ pillar_id: pillars[0]?.id || "", name: "", status: "not_started", due_date: "", notes: "" });
     }
   }, [initialData, pillars, isOpen]);
 
@@ -732,8 +739,9 @@ function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData }) {
         <div>
           <label className="block text-sm font-bold text-slate-700 mb-2">Status</label>
           <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium">
-            <option value="upcoming">Upcoming</option>
-            <option value="in-progress">In Progress</option>
+            <option value="not_started">Upcoming</option>
+            <option value="in_progress">In Progress</option>
+            <option value="blocked">Blocked</option>
             <option value="done">Done</option>
           </select>
         </div>
@@ -816,6 +824,48 @@ export default function App() {
     else if (supabase) { await supabase.from("milestones").delete().eq("pillar_id", id); await supabase.from("pillars").delete().eq("id", id); }
   };
 
+  const sanitizeMilestone = (data) => ({
+    pillar_id: data.pillar_id,
+    name: (data.name || "").trim(),
+    status: data.status || "not_started",
+    due_date: data.due_date ? data.due_date : null,
+    notes: data.notes || null,
+  });
+
+  const handleCreateMilestone = async (data) => {
+    const payload = sanitizeMilestone(data);
+    if (!payload.pillar_id || !payload.name) return;
+    if (demoMode) {
+      setMilestones([...milestones, { ...payload, id: `m${Date.now()}` }]);
+    } else if (supabase) {
+      const { data: inserted, error } = await supabase.from("milestones").insert([payload]).select().single();
+      if (error) { console.error("Milestone insert failed:", error); alert(`Could not create milestone: ${error.message}`); return; }
+      if (inserted) setMilestones([...milestones, inserted]);
+    }
+  };
+
+  const handleUpdateMilestone = async (data) => {
+    const payload = sanitizeMilestone(data);
+    if (demoMode) {
+      setMilestones(milestones.map(m => m.id === editingMilestone.id ? { ...m, ...payload } : m));
+    } else if (supabase) {
+      const { data: updated, error } = await supabase.from("milestones").update(payload).eq("id", editingMilestone.id).select().single();
+      if (error) { console.error("Milestone update failed:", error); alert(`Could not update milestone: ${error.message}`); return; }
+      if (updated) setMilestones(milestones.map(m => m.id === updated.id ? updated : m));
+    }
+    setEditingMilestone(null);
+  };
+
+  const handleDeleteMilestone = async (id) => {
+    if (!confirm("Delete this milestone?")) return;
+    if (demoMode) { setMilestones(milestones.filter(m => m.id !== id)); }
+    else if (supabase) {
+      const { error } = await supabase.from("milestones").delete().eq("id", id);
+      if (error) { console.error("Milestone delete failed:", error); alert(`Could not delete: ${error.message}`); return; }
+      setMilestones(milestones.filter(m => m.id !== id));
+    }
+  };
+
   const filteredPillars = pillars.filter(p => {
     const pMilestones = milestones.filter(m => m.pillar_id === p.id);
     const progress = p.progress_override ?? calculateProgress(pMilestones);
@@ -886,7 +936,7 @@ export default function App() {
       </motion.button>
 
       <PillarForm isOpen={showPillarForm} onClose={() => { setShowPillarForm(false); setEditingPillar(null); }} onSubmit={editingPillar ? handleUpdatePillar : handleCreatePillar} initialData={editingPillar} />
-      <MilestoneForm isOpen={showMilestoneForm} onClose={() => { setShowMilestoneForm(false); setEditingMilestone(null); }} onSubmit={() => {}} pillars={pillars} initialData={editingMilestone} />
+      <MilestoneForm isOpen={showMilestoneForm} onClose={() => { setShowMilestoneForm(false); setEditingMilestone(null); }} onSubmit={editingMilestone ? handleUpdateMilestone : handleCreateMilestone} pillars={pillars} initialData={editingMilestone} />
 
       <AnimatePresence>
         {showMenu && (
