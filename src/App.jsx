@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  AlertTriangle, BarChart3, Calendar, CheckCircle2, ChevronDown, ChevronRight,
-  Clock, Edit3, Filter, Flag, ListTodo, Loader2, LogOut, Mail, Menu,
-  MoreVertical, Phone, Plus, Search, Settings, Share2, ShieldCheck,
-  Paperclip, Sparkles, Target, Trash2, TrendingUp, Upload, UserPlus, Users, X, Zap
+  AlertTriangle, BarChart3, Calendar, CheckCircle2, ChevronDown, ChevronRight, ChevronUp,
+  Clock, Crown, Edit3, Eye, Filter, Flag, ListTodo, Loader2, LogOut, Mail, Menu,
+  MoreVertical, Phone, Plus, Search, Settings, Shield, Share2, ShieldCheck,
+  Paperclip, Sparkles, Target, Trash2, TrendingUp, Upload, User, UserPlus, Users, X, Zap
 } from "lucide-react";
 import { supabase, hasSupabaseEnv } from "./supabase";
 
@@ -1951,6 +1951,390 @@ function GanttView({ pillars, milestones }) {
   );
 }
 
+// ─── Admin Page ───────────────────────────────────────────────────────────────
+function AdminPage({ currentUserId, pillars, profiles, members, onRefreshAll }) {
+  const [tab, setTab] = useState("users"); // "users" | "access"
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [userSearch, setUserSearch] = useState("");
+  const [showInvite, setShowInvite] = useState(false);
+
+  // Load admin users overview
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    const { data, error } = await supabase.from("admin_users_overview").select("*").order("email");
+    if (!error) setUsers(data || []);
+    setLoadingUsers(false);
+  };
+  useEffect(() => { loadUsers(); }, []);
+
+  const filteredUsers = users.filter(u => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (u.email || "").toLowerCase().includes(q) || (u.full_name || "").toLowerCase().includes(q);
+  });
+
+  const toggleRole = async (u) => {
+    const newRole = u.role === "admin" ? "member" : "admin";
+    if (u.id === currentUserId && newRole === "member") {
+      if (!confirm("Demote yourself from admin? You will lose access to this page.")) return;
+    }
+    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", u.id);
+    if (error) { alert(error.message); return; }
+    loadUsers();
+  };
+
+  return (
+    <div className="px-4 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-br from-purple-700 to-pink-600 bg-clip-text text-transparent">
+            Admin
+          </h1>
+          <p className="mt-2 text-sm font-semibold text-slate-500 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-purple-600" />
+            Manage users and project access
+          </p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="inline-flex items-center bg-white rounded-full p-1 shadow-sm border border-slate-200">
+        {[
+          { id: "users", label: "Users", icon: Users },
+          { id: "access", label: "Project Access", icon: Shield },
+        ].map(t => {
+          const I = t.icon;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-1.5 ${tab === t.id ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow" : "text-slate-500 hover:text-slate-800"}`}
+            >
+              <I className="w-4 h-4" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "users" ? (
+        <div className="space-y-3">
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
+              <input
+                type="text"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Search by name or email…"
+                className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 text-sm font-medium"
+              />
+            </div>
+            <button
+              onClick={() => setShowInvite(true)}
+              className="px-4 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 shadow-lg hover:shadow-xl transition text-sm flex items-center gap-1.5"
+            >
+              <UserPlus className="w-4 h-4" /> New User
+            </button>
+          </div>
+
+          {/* Users table */}
+          <div className="bg-white rounded-2xl border-2 border-purple-100 shadow-sm overflow-hidden">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2.5 bg-purple-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <div>User</div>
+              <div className="text-center">Role</div>
+              <div className="text-center">Pillars</div>
+              <div className="text-center">Last seen</div>
+            </div>
+            {loadingUsers ? (
+              <div className="p-8 text-center text-slate-400"><Loader2 className="w-6 h-6 animate-spin inline" /></div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-sm">No users found.</div>
+            ) : filteredUsers.map(u => {
+              const last = u.last_sign_in_at ? new Date(u.last_sign_in_at) : null;
+              const lastLabel = last ? `${Math.max(0, Math.floor((Date.now() - last) / 86400000))}d ago` : "—";
+              return (
+                <div key={u.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 border-t border-slate-100 items-center hover:bg-purple-50/50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-black text-xs shrink-0">
+                      {(u.full_name || u.email || "?").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-slate-800 truncate">{u.full_name || u.email}</div>
+                      <div className="text-[11px] text-slate-500 truncate">{u.email}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toggleRole(u)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition ${u.role === "admin" ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                  >
+                    {u.role === "admin" ? <Crown className="w-3 h-3" /> : <User className="w-3 h-3" />}
+                    {u.role}
+                  </button>
+                  <div className="text-center text-xs font-bold text-slate-600">{(u.owned_pillars || 0) + (u.member_pillars || 0)}</div>
+                  <div className="text-center text-[11px] text-slate-500 font-semibold w-16">{lastLabel}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <AdminProjectAccess pillars={pillars} profiles={profiles} members={members} onRefresh={onRefreshAll} />
+      )}
+
+      <AnimatePresence>
+        {showInvite && (
+          <InviteUserModal
+            onClose={() => setShowInvite(false)}
+            onCreated={() => { setShowInvite(false); loadUsers(); }}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function InviteUserModal({ onClose, onCreated }) {
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState("member");
+  const [mode, setMode] = useState("invite"); // "invite" = magic link, "create" = password-less instant
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setErr("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not signed in.");
+      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/admin-create-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabase.supabaseKey,
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          full_name: fullName.trim(),
+          role,
+          send_invite: mode === "invite",
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      onCreated();
+    } catch (e2) {
+      setErr(e2.message);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+        transition={{ type: "spring", damping: 28 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+      >
+        <div className="p-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white flex items-center justify-between">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider opacity-80">Admin</div>
+            <div className="text-xl font-black">New User</div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full bg-white/20 hover:bg-white/30">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={submit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@example.com"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500 text-sm font-medium" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Full name</label>
+            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Doe"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500 text-sm font-medium" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Role</label>
+            <div className="flex gap-2">
+              {[{v:"member",label:"Member",icon:User},{v:"admin",label:"Admin",icon:Crown}].map(r => {
+                const I = r.icon;
+                return (
+                  <button key={r.v} type="button" onClick={() => setRole(r.v)}
+                    className={`flex-1 px-3 py-2 rounded-xl text-sm font-bold border-2 transition flex items-center justify-center gap-1.5 ${role === r.v ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white border-transparent" : "bg-white text-slate-600 border-slate-200"}`}>
+                    <I className="w-4 h-4" /> {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Delivery</label>
+            <div className="flex gap-2">
+              {[{v:"invite",label:"Send magic-link invite"},{v:"create",label:"Create instantly"}].map(m => (
+                <button key={m.v} type="button" onClick={() => setMode(m.v)}
+                  className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border-2 transition ${mode === m.v ? "bg-purple-50 text-purple-700 border-purple-400" : "bg-white text-slate-500 border-slate-200"}`}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-slate-500">
+              {mode === "invite" ? "User gets an email with a sign-in link." : "Account created instantly with a random password. They can still use magic-link to sign in."}
+            </p>
+          </div>
+
+          {err && <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">{err}</div>}
+
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 text-sm">Cancel</button>
+            <button type="submit" disabled={busy} className="flex-[2] py-3 rounded-xl font-black text-sm text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg transition disabled:opacity-60 flex items-center justify-center gap-2">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+              {busy ? "Creating…" : "Create User"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function AdminProjectAccess({ pillars, profiles, members, onRefresh }) {
+  const [selectedPillar, setSelectedPillar] = useState(pillars[0]?.id || "");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState("member");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const pillar = pillars.find(p => p.id === selectedPillar);
+  const pillarMembers = members.filter(m => m.pillar_id === selectedPillar);
+  const ownerProfile = profiles.find(p => p.id === pillar?.owner_id);
+
+  const profileOf = (uid) => profiles.find(p => p.id === uid);
+
+  const addMember = async (e) => {
+    e.preventDefault();
+    setBusy(true); setErr("");
+    try {
+      const { error } = await supabase.rpc("add_pillar_member_by_email", {
+        p_pillar_id: selectedPillar,
+        p_email: newMemberEmail.trim(),
+        p_role: newMemberRole,
+      });
+      if (error) throw error;
+      setNewMemberEmail("");
+      onRefresh?.();
+    } catch (e2) { setErr(e2.message); }
+    finally { setBusy(false); }
+  };
+
+  const updateRole = async (userId, role) => {
+    const { error } = await supabase.rpc("admin_set_member_role", {
+      p_pillar_id: selectedPillar, p_user_id: userId, p_role: role,
+    });
+    if (error) { alert(error.message); return; }
+    onRefresh?.();
+  };
+  const removeMember = async (userId) => {
+    if (!confirm("Remove this member from the pillar?")) return;
+    const { error } = await supabase.rpc("admin_remove_member", {
+      p_pillar_id: selectedPillar, p_user_id: userId,
+    });
+    if (error) { alert(error.message); return; }
+    onRefresh?.();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl border-2 border-purple-100 shadow-sm p-4">
+        <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Project / Pillar</label>
+        <select value={selectedPillar} onChange={(e) => setSelectedPillar(e.target.value)}
+          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-purple-500">
+          <option value="">— Select —</option>
+          {pillars.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+        </select>
+      </div>
+
+      {pillar && (
+        <>
+          {/* Owner card */}
+          <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-4 text-white shadow-lg flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center">
+              <Crown className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Owner</div>
+              <div className="font-black truncate">{ownerProfile?.full_name || ownerProfile?.email || "—"}</div>
+              <div className="text-xs opacity-80 truncate">{ownerProfile?.email}</div>
+            </div>
+          </div>
+
+          {/* Add member */}
+          <form onSubmit={addMember} className="bg-white rounded-2xl border-2 border-purple-100 shadow-sm p-4 space-y-3">
+            <div className="text-sm font-black text-slate-800 flex items-center gap-2"><UserPlus className="w-4 h-4 text-purple-600" />Add member</div>
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2">
+              <input type="email" required value={newMemberEmail} onChange={(e) => setNewMemberEmail(e.target.value)} placeholder="person@example.com"
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-purple-500" />
+              <select value={newMemberRole} onChange={(e) => setNewMemberRole(e.target.value)}
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-purple-500">
+                <option value="owner">Owner</option>
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+              </select>
+              <button type="submit" disabled={busy} className="px-4 py-2 rounded-xl font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 shadow text-sm disabled:opacity-60">
+                {busy ? "…" : "Add"}
+              </button>
+            </div>
+            {err && <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">{err}</div>}
+            <p className="text-[11px] text-slate-500">User must have signed in at least once. Use "New User" on the Users tab first if needed.</p>
+          </form>
+
+          {/* Members list */}
+          <div className="bg-white rounded-2xl border-2 border-purple-100 shadow-sm overflow-hidden">
+            <div className="px-4 py-2.5 bg-purple-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+              Members ({pillarMembers.length})
+            </div>
+            {pillarMembers.length === 0 ? (
+              <div className="p-6 text-center text-slate-400 text-sm">No additional members yet.</div>
+            ) : pillarMembers.map(m => {
+              const prof = profileOf(m.user_id);
+              return (
+                <div key={m.user_id} className="flex items-center gap-3 px-4 py-2.5 border-t border-slate-100">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-black text-[11px] shrink-0">
+                    {(prof?.full_name || prof?.email || "?").split(" ").map(s => s[0]).join("").slice(0,2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-slate-800 truncate">{prof?.full_name || prof?.email || m.user_id.slice(0, 8)}</div>
+                    <div className="text-[11px] text-slate-500 truncate">{prof?.email}</div>
+                  </div>
+                  <select value={m.role} onChange={(e) => updateRole(m.user_id, e.target.value)}
+                    className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-black uppercase tracking-wider focus:outline-none focus:border-purple-500">
+                    <option value="owner">Owner</option>
+                    <option value="member">Member</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                  <button onClick={() => removeMember(m.user_id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [demoMode, setDemoMode] = useState(!hasSupabaseEnv);
@@ -2301,6 +2685,7 @@ export default function App() {
                 { id: "cards", label: "Cards" },
                 { id: "board", label: "Board" },
                 { id: "gantt", label: "Time" },
+                ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
               ].map(v => (
                 <button
                   key={v.id}
@@ -2383,6 +2768,7 @@ export default function App() {
                   { id: "cards", label: "Cards" },
                   { id: "board", label: "Board" },
                   { id: "gantt", label: "Timeline" },
+                  ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
                 ].map(v => (
                   <button
                     key={v.id}
@@ -2441,6 +2827,22 @@ export default function App() {
           />
         ) : viewMode === "gantt" ? (
           <GanttView pillars={filteredPillars} milestones={milestones} />
+        ) : viewMode === "admin" && isAdmin ? (
+          <AdminPage
+            currentUserId={user?.id}
+            pillars={pillars}
+            profiles={profiles}
+            members={members}
+            onRefreshAll={async () => {
+              if (!supabase) return;
+              const [membersRes, profilesRes] = await Promise.all([
+                supabase.from("pillar_members").select("*"),
+                supabase.from("profiles").select("*"),
+              ]);
+              setMembers(membersRes.data || []);
+              setProfiles(profilesRes.data || []);
+            }}
+          />
         ) : (
           <div className="px-4 space-y-4">
             {filteredPillars.map(pillar => {
