@@ -2396,22 +2396,23 @@ function InviteUserModal({ onClose, onCreated }) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not signed in.");
-      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/admin-create-user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: supabase.supabaseKey,
-        },
-        body: JSON.stringify({
+      const { data: j, error: invErr } = await supabase.functions.invoke("admin-create-user", {
+        body: {
           email: email.trim(),
           full_name: fullName.trim(),
           role,
           send_invite: mode === "invite",
-        }),
+        },
       });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      if (invErr) {
+        // FunctionsHttpError / FunctionsRelayError / FunctionsFetchError
+        const msg = invErr.context?.error || invErr.message || "Unknown error";
+        if (/not.?found|404/i.test(msg) || invErr.name === "FunctionsFetchError") {
+          throw new Error("Edge Function 'admin-create-user' is not deployed. Run: supabase functions deploy admin-create-user --no-verify-jwt");
+        }
+        throw new Error(msg);
+      }
+      if (j?.error) throw new Error(j.error);
       onCreated();
     } catch (e2) {
       setErr(e2.message);
