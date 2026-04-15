@@ -232,7 +232,7 @@ function ActionMenu({ isOpen, onClose, actions }) {
 }
 
 // ─── Vibrant Pillar Card ──────────────────────────────────────────────────────
-function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone }) {
+function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone, onCycleMilestoneStatus }) {
   const [showSubs, setShowSubs] = useState(false);
   const [newSub, setNewSub] = useState("");
   const doneCount = subs.filter(s => s.done).length;
@@ -252,13 +252,25 @@ function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSu
       className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-all border border-slate-100 overflow-hidden"
     >
       <div className="flex items-start gap-3 p-4">
-        <div className={`p-2 rounded-xl bg-gradient-to-br ${mCfg.gradient} shadow-md`}>
+        <button
+          onClick={(e) => { e.stopPropagation(); canEdit && onCycleMilestoneStatus && onCycleMilestoneStatus(m.id); }}
+          disabled={!canEdit}
+          className={`p-2 rounded-xl bg-gradient-to-br ${mCfg.gradient} shadow-md ${canEdit ? "hover:scale-110 cursor-pointer transition-transform" : ""}`}
+          title={canEdit ? "Click to cycle status" : mCfg.label}
+        >
           <div className="text-white">{mCfg.icon}</div>
-        </div>
+        </button>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-sm text-slate-900 mb-1">{m.name}</p>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${mCfg.badge}`}>{mCfg.label}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); canEdit && onCycleMilestoneStatus && onCycleMilestoneStatus(m.id); }}
+              disabled={!canEdit}
+              className={`text-xs px-3 py-1 rounded-full font-semibold ${mCfg.badge} ${canEdit ? "hover:ring-2 hover:ring-purple-300 cursor-pointer" : "cursor-default"}`}
+              title={canEdit ? "Click to cycle status" : ""}
+            >
+              {mCfg.label}
+            </button>
             {m.due_date && (
               <span className="text-xs text-slate-500 flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
@@ -342,7 +354,7 @@ function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSu
   );
 }
 
-function VibrantPillarCard({ pillar, milestones, subtasks = [], onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone, isExpanded, onToggle, onEdit, onDelete, onShare, canEdit }) {
+function VibrantPillarCard({ pillar, milestones, subtasks = [], onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone, onCycleMilestoneStatus, isExpanded, onToggle, onEdit, onDelete, onShare, canEdit }) {
   const progress = pillar.progress_override ?? calculateProgress(milestones);
   const status = determineStatus(pillar.due_date, progress);
   const cfg = STATUS_CONFIG[status];
@@ -559,6 +571,7 @@ function VibrantPillarCard({ pillar, milestones, subtasks = [], onCreateSubtask,
                             onDeleteSubtask={onDeleteSubtask}
                             onEditMilestone={onEditMilestone}
                             onDeleteMilestone={onDeleteMilestone}
+                            onCycleMilestoneStatus={onCycleMilestoneStatus}
                           />
                         );
                       })}
@@ -956,6 +969,19 @@ export default function App() {
     setEditingMilestone(null);
   };
 
+  const handleCycleMilestoneStatus = async (id) => {
+    const order = ["not_started", "in_progress", "done", "blocked"];
+    const m = milestones.find(x => x.id === id);
+    if (!m) return;
+    const current = order.indexOf(m.status);
+    const next = order[(current === -1 ? 0 : current + 1) % order.length];
+    setMilestones(milestones.map(x => x.id === id ? { ...x, status: next } : x));
+    if (!demoMode && supabase) {
+      const { error } = await supabase.from("milestones").update({ status: next }).eq("id", id);
+      if (error) { console.error("Status cycle failed:", error); alert(`Could not update status: ${error.message}`); }
+    }
+  };
+
   const handleDeleteMilestone = async (id) => {
     if (!confirm("Delete this milestone?")) return;
     if (demoMode) { setMilestones(milestones.filter(m => m.id !== id)); }
@@ -1112,7 +1138,7 @@ export default function App() {
             const pillarMilestones = milestones.filter(m => m.pillar_id === pillar.id);
             const canEdit = pillar.owner_id === user.id || isAdmin;
             return (
-              <VibrantPillarCard key={pillar.id} pillar={pillar} milestones={pillarMilestones} subtasks={subtasks} onCreateSubtask={handleCreateSubtask} onToggleSubtask={handleToggleSubtask} onDeleteSubtask={handleDeleteSubtask} onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }} onDeleteMilestone={handleDeleteMilestone} isExpanded={expandedPillar === pillar.id} onToggle={() => setExpandedPillar(expandedPillar === pillar.id ? null : pillar.id)} onEdit={() => { setEditingPillar(pillar); setShowPillarForm(true); }} onDelete={() => handleDeletePillar(pillar.id)} onShare={() => {}} canEdit={canEdit} />
+              <VibrantPillarCard key={pillar.id} pillar={pillar} milestones={pillarMilestones} subtasks={subtasks} onCreateSubtask={handleCreateSubtask} onToggleSubtask={handleToggleSubtask} onDeleteSubtask={handleDeleteSubtask} onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }} onDeleteMilestone={handleDeleteMilestone} onCycleMilestoneStatus={handleCycleMilestoneStatus} isExpanded={expandedPillar === pillar.id} onToggle={() => setExpandedPillar(expandedPillar === pillar.id ? null : pillar.id)} onEdit={() => { setEditingPillar(pillar); setShowPillarForm(true); }} onDelete={() => handleDeletePillar(pillar.id)} onShare={() => {}} canEdit={canEdit} />
             );
           })
         )}
