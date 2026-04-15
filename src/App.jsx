@@ -1962,7 +1962,12 @@ function AdminPage({ currentUserId, pillars, profiles, members, onRefreshAll }) 
   // Load admin users overview
   const loadUsers = async () => {
     setLoadingUsers(true);
-    const { data, error } = await supabase.from("admin_users_overview").select("*").order("email");
+    // Prefer the RPC (bypasses RLS internally); fall back to the view for older installs.
+    let { data, error } = await supabase.rpc("admin_list_users");
+    if (error) {
+      const fallback = await supabase.from("admin_users_overview").select("*").order("email");
+      data = fallback.data; error = fallback.error;
+    }
     if (!error) setUsers(data || []);
     setLoadingUsers(false);
   };
@@ -1979,7 +1984,12 @@ function AdminPage({ currentUserId, pillars, profiles, members, onRefreshAll }) 
     if (u.id === currentUserId && newRole === "member") {
       if (!confirm("Demote yourself from admin? You will lose access to this page.")) return;
     }
-    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", u.id);
+    // Use the admin RPC (bypasses RLS); fall back to direct update.
+    let { error } = await supabase.rpc("admin_set_user_role", { p_user_id: u.id, p_role: newRole });
+    if (error) {
+      const fb = await supabase.from("profiles").update({ role: newRole }).eq("id", u.id);
+      error = fb.error;
+    }
     if (error) { alert(error.message); return; }
     loadUsers();
   };
