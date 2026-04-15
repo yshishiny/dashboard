@@ -1802,6 +1802,23 @@ export default function App() {
     try { return localStorage.getItem("viewMode") || "hub"; } catch { return "hub"; }
   });
   useEffect(() => { try { localStorage.setItem("viewMode", viewMode); } catch {} }, [viewMode]);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  useEffect(() => {
+    let last = 0, ticking = false;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setHeaderCollapsed(y > 40);
+          last = y;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const [showPillarForm, setShowPillarForm] = useState(false);
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -2071,77 +2088,154 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
-      {/* Vibrant Header */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b-2 border-purple-100 shadow-lg">
-        <div className="px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }} className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Sparkles className="w-7 h-7 text-white" />
-            </motion.div>
-            <div>
-              <h1 className="font-black text-xl bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Project Pillars</h1>
-              <p className="text-xs text-slate-500 font-semibold">{currentProfile?.full_name || currentProfile?.email}</p>
-            </div>
-          </div>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setShowMenu(!showMenu)} className="p-3 hover:bg-purple-100 rounded-2xl transition-all">
-            <Menu className="w-6 h-6 text-purple-600" />
-          </motion.button>
-        </div>
+      {/* Dynamic Header — collapses on scroll */}
+      <motion.div
+        animate={{
+          paddingTop: headerCollapsed ? 6 : 16,
+          paddingBottom: headerCollapsed ? 6 : 16,
+        }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="sticky top-0 z-40 bg-white/85 backdrop-blur-xl border-b border-slate-200/70 shadow-sm"
+      >
+        {/* Top row — always visible */}
+        <div className="px-4 flex items-center gap-3">
+          <motion.div
+            animate={{ width: headerCollapsed ? 36 : 48, height: headerCollapsed ? 36 : 48 }}
+            transition={{ duration: 0.25 }}
+            className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
+          >
+            <Sparkles className={headerCollapsed ? "w-5 h-5 text-white" : "w-6 h-6 text-white"} />
+          </motion.div>
 
-        <div className="px-4 pb-4 space-y-3">
-          {/* Stats overview strip */}
-          <div className="grid grid-cols-5 gap-2">
-            <div className="bg-white rounded-xl p-2 text-center border-2 border-purple-100 shadow-sm">
-              <div className="text-lg font-black text-purple-600">{totalMilestones}</div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Total</div>
+          {!headerCollapsed && (
+            <div className="min-w-0 flex-shrink">
+              <h1 className="font-black text-xl bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">Project Pillars</h1>
+              <p className="text-xs text-slate-500 font-semibold truncate">{currentProfile?.full_name || currentProfile?.email}</p>
             </div>
-            <div className="bg-white rounded-xl p-2 text-center border-2 border-emerald-100 shadow-sm">
-              <div className="text-lg font-black text-emerald-600">{doneMilestones}</div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Done</div>
-            </div>
-            <div className="bg-white rounded-xl p-2 text-center border-2 border-blue-100 shadow-sm">
-              <div className="text-lg font-black text-blue-600">{dueThisWeekCount}</div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Week</div>
-            </div>
-            <div className="bg-white rounded-xl p-2 text-center border-2 border-rose-100 shadow-sm">
-              <div className="text-lg font-black text-rose-600">{overdueCount}</div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Overdue</div>
-            </div>
-            <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-2 text-center shadow-sm">
-              <div className="text-lg font-black text-white">{completionPct}%</div>
-              <div className="text-[10px] font-bold text-white/80 uppercase tracking-wide">Progress</div>
-            </div>
+          )}
+
+          {/* Search — grows when collapsed to fill the row */}
+          <div className={`relative ${headerCollapsed ? "flex-1" : "hidden md:block flex-1 max-w-md ml-auto"}`}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={headerCollapsed ? "Search…" : "Search pillars & milestones…"}
+              className={`w-full pl-9 pr-3 bg-white border border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 text-sm font-medium transition-all ${headerCollapsed ? "py-1.5" : "py-2"}`}
+            />
           </div>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search pillars & milestones... (press N for new)" className="w-full pl-12 pr-4 py-4 bg-white border-2 border-purple-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium transition-all shadow-sm" />
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 items-center">
-            <div className="inline-flex items-center bg-white rounded-full p-1 shadow-sm border border-slate-200 flex-shrink-0">
+
+          {/* View toggle — compact inline when collapsed */}
+          {headerCollapsed && (
+            <div className="inline-flex items-center bg-slate-100 rounded-full p-0.5 shrink-0">
               {[
                 { id: "hub", label: "Hub" },
                 { id: "cards", label: "Cards" },
                 { id: "board", label: "Board" },
-                { id: "gantt", label: "Timeline" },
+                { id: "gantt", label: "Time" },
               ].map(v => (
                 <button
                   key={v.id}
                   onClick={() => setViewMode(v.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === v.id ? "bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${viewMode === v.id ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}
                 >
                   {v.label}
                 </button>
               ))}
             </div>
-            <div className="w-px h-6 bg-slate-200 flex-shrink-0" />
-            {["all", "Critical", "At Risk", "On Track"].map(status => (
-              <motion.button key={status} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setStatusFilter(status)} className={`px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all shadow-md ${statusFilter === status ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white" : "bg-white text-slate-600 border-2 border-purple-200"}`}>
-                {status === "all" ? "All" : status}
-              </motion.button>
-            ))}
-          </div>
+          )}
+
+          {/* Mini progress chip when collapsed */}
+          {headerCollapsed && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full shadow shrink-0">
+              <span className="text-[11px] font-black text-white">{completionPct}%</span>
+              <span className="text-[9px] font-bold text-white/80 uppercase tracking-wide">done</span>
+            </div>
+          )}
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowMenu(!showMenu)}
+            className={`hover:bg-purple-100 rounded-xl transition-all shrink-0 ${headerCollapsed ? "p-2" : "p-2.5"}`}
+          >
+            <Menu className={headerCollapsed ? "w-5 h-5 text-purple-600" : "w-6 h-6 text-purple-600"} />
+          </motion.button>
         </div>
-      </div>
+
+        {/* Expanded-only section: stats strip + full search + chips */}
+        <motion.div
+          animate={{
+            height: headerCollapsed ? 0 : "auto",
+            opacity: headerCollapsed ? 0 : 1,
+            marginTop: headerCollapsed ? 0 : 12,
+          }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="overflow-hidden"
+        >
+          <div className="px-4 space-y-3">
+            <div className="grid grid-cols-5 gap-2">
+              <div className="bg-white rounded-xl p-2 text-center border-2 border-purple-100 shadow-sm">
+                <div className="text-lg font-black text-purple-600">{totalMilestones}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Total</div>
+              </div>
+              <div className="bg-white rounded-xl p-2 text-center border-2 border-emerald-100 shadow-sm">
+                <div className="text-lg font-black text-emerald-600">{doneMilestones}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Done</div>
+              </div>
+              <div className="bg-white rounded-xl p-2 text-center border-2 border-blue-100 shadow-sm">
+                <div className="text-lg font-black text-blue-600">{dueThisWeekCount}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Week</div>
+              </div>
+              <div className="bg-white rounded-xl p-2 text-center border-2 border-rose-100 shadow-sm">
+                <div className="text-lg font-black text-rose-600">{overdueCount}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Overdue</div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-2 text-center shadow-sm">
+                <div className="text-lg font-black text-white">{completionPct}%</div>
+                <div className="text-[10px] font-bold text-white/80 uppercase tracking-wide">Progress</div>
+              </div>
+            </div>
+
+            <div className="relative md:hidden">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search pillars & milestones… (press N for new)"
+                className="w-full pl-12 pr-4 py-3 bg-white border-2 border-purple-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium transition-all shadow-sm"
+              />
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1 items-center">
+              <div className="inline-flex items-center bg-white rounded-full p-1 shadow-sm border border-slate-200 flex-shrink-0">
+                {[
+                  { id: "hub", label: "Hub" },
+                  { id: "cards", label: "Cards" },
+                  { id: "board", label: "Board" },
+                  { id: "gantt", label: "Timeline" },
+                ].map(v => (
+                  <button
+                    key={v.id}
+                    onClick={() => setViewMode(v.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${viewMode === v.id ? "bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow" : "text-slate-500 hover:text-slate-800"}`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              <div className="w-px h-6 bg-slate-200 flex-shrink-0" />
+              {["all", "Critical", "At Risk", "On Track"].map(status => (
+                <motion.button key={status} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setStatusFilter(status)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-md ${statusFilter === status ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white" : "bg-white text-slate-600 border-2 border-purple-200"}`}>
+                  {status === "all" ? "All" : status}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
 
       {/* Pillars */}
       <div className={viewMode === "cards" ? "px-4 py-6 space-y-4 pb-24" : "py-6 pb-24"}>
