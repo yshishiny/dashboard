@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle, BarChart3, Calendar, CheckCircle2, ChevronDown, ChevronRight,
   Clock, Edit3, Filter, Flag, ListTodo, Loader2, LogOut, Mail, Menu,
   MoreVertical, Phone, Plus, Search, Settings, Share2, ShieldCheck,
-  Sparkles, Target, Trash2, TrendingUp, UserPlus, Users, X, Zap
+  Paperclip, Sparkles, Target, Trash2, TrendingUp, Upload, UserPlus, Users, X, Zap
 } from "lucide-react";
 import { supabase, hasSupabaseEnv } from "./supabase";
 
@@ -232,10 +232,17 @@ function ActionMenu({ isOpen, onClose, actions }) {
 }
 
 // ─── Vibrant Pillar Card ──────────────────────────────────────────────────────
-function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone, onCycleMilestoneStatus }) {
+function MilestoneRow({ m, idx, mCfg, subs, atts = [], canEdit, onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone, onCycleMilestoneStatus, onUploadAttachment, onOpenAttachment, onDeleteAttachment }) {
   const [showSubs, setShowSubs] = useState(false);
   const [newSub, setNewSub] = useState("");
   const doneCount = subs.filter(s => s.done).length;
+  const fileInputRef = useRef(null);
+
+  const onPickFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) onUploadAttachment && onUploadAttachment(m.id, f);
+    e.target.value = "";
+  };
 
   const submitSub = (e) => {
     e.preventDefault();
@@ -280,6 +287,11 @@ function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSu
             {subs.length > 0 && (
               <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
                 {doneCount}/{subs.length} subtasks
+              </span>
+            )}
+            {atts.length > 0 && (
+              <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                <Paperclip className="w-3 h-3" /> {atts.length}
               </span>
             )}
           </div>
@@ -346,6 +358,54 @@ function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSu
               {subs.length === 0 && !canEdit && (
                 <p className="text-xs text-slate-400 text-center py-2">No subtasks yet</p>
               )}
+
+              {/* Attachments */}
+              <div className="pt-3 mt-1 border-t border-slate-200">
+                <div className="flex items-center justify-between mb-2 px-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 uppercase tracking-wider">
+                    <Paperclip className="w-3.5 h-3.5" /> Attachments
+                  </div>
+                  {canEdit && (
+                    <>
+                      <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFile} />
+                      <button
+                        onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
+                      >
+                        <Upload className="w-3.5 h-3.5" /> Upload
+                      </button>
+                    </>
+                  )}
+                </div>
+                {atts.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-1">No files</p>
+                ) : (
+                  <div className="space-y-1">
+                    {atts.map(a => (
+                      <div key={a.id} className="flex items-center gap-2 px-2 py-1.5 bg-white rounded-lg border border-slate-100">
+                        <Paperclip className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                        <button
+                          onClick={() => onOpenAttachment && onOpenAttachment(a)}
+                          className="flex-1 text-sm text-left text-slate-700 hover:text-indigo-600 truncate"
+                          title={a.filename}
+                        >
+                          {a.filename}
+                        </button>
+                        {a.size_bytes && (
+                          <span className="text-[10px] text-slate-400 flex-shrink-0">
+                            {a.size_bytes < 1024 ? `${a.size_bytes}B` : a.size_bytes < 1048576 ? `${Math.round(a.size_bytes / 1024)}KB` : `${(a.size_bytes / 1048576).toFixed(1)}MB`}
+                          </span>
+                        )}
+                        {canEdit && (
+                          <button onClick={() => onDeleteAttachment && onDeleteAttachment(a)} className="text-slate-400 hover:text-rose-500 flex-shrink-0">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -354,7 +414,7 @@ function MilestoneRow({ m, idx, mCfg, subs, canEdit, onCreateSubtask, onToggleSu
   );
 }
 
-function VibrantPillarCard({ pillar, milestones, subtasks = [], onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone, onCycleMilestoneStatus, isExpanded, onToggle, onEdit, onDelete, onShare, canEdit }) {
+function VibrantPillarCard({ pillar, milestones, subtasks = [], attachments = [], onUploadAttachment, onOpenAttachment, onDeleteAttachment, onCreateSubtask, onToggleSubtask, onDeleteSubtask, onEditMilestone, onDeleteMilestone, onCycleMilestoneStatus, isExpanded, onToggle, onEdit, onDelete, onShare, canEdit }) {
   const progress = pillar.progress_override ?? calculateProgress(milestones);
   const status = determineStatus(pillar.due_date, progress);
   const cfg = STATUS_CONFIG[status];
@@ -558,6 +618,7 @@ function VibrantPillarCard({ pillar, milestones, subtasks = [], onCreateSubtask,
                       {milestones.map((m, idx) => {
                         const mCfg = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
                         const mSubs = subtasks.filter(s => s.milestone_id === m.id);
+                        const mAtts = attachments.filter(a => a.milestone_id === m.id);
                         return (
                           <MilestoneRow
                             key={m.id}
@@ -565,6 +626,10 @@ function VibrantPillarCard({ pillar, milestones, subtasks = [], onCreateSubtask,
                             idx={idx}
                             mCfg={mCfg}
                             subs={mSubs}
+                            atts={mAtts}
+                            onUploadAttachment={onUploadAttachment}
+                            onOpenAttachment={onOpenAttachment}
+                            onDeleteAttachment={onDeleteAttachment}
                             canEdit={canEdit}
                             onCreateSubtask={onCreateSubtask}
                             onToggleSubtask={onToggleSubtask}
@@ -874,6 +939,7 @@ export default function App() {
   const [pillars, setPillars] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [subtasks, setSubtasks] = useState([]);
+  const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedPillar, setExpandedPillar] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -906,14 +972,16 @@ export default function App() {
     if (demoMode || !user || !supabase) return;
     (async () => {
       setLoading(true);
-      const [profilesRes, pillarsRes, milestonesRes, subtasksRes] = await Promise.all([
+      const [profilesRes, pillarsRes, milestonesRes, subtasksRes, attachmentsRes] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("pillars").select("*"),
         supabase.from("milestones").select("*"),
-        supabase.from("subtasks").select("*").order("sort_order", { ascending: true })
+        supabase.from("subtasks").select("*").order("sort_order", { ascending: true }),
+        supabase.from("milestone_attachments").select("*").order("created_at", { ascending: false })
       ]);
       setProfiles(profilesRes.data || []); setPillars(pillarsRes.data || []); setMilestones(milestonesRes.data || []);
       setSubtasks(subtasksRes.error ? [] : (subtasksRes.data || []));
+      setAttachments(attachmentsRes.error ? [] : (attachmentsRes.data || []));
       setLoading(false);
     })();
   }, [user, demoMode]);
@@ -1023,6 +1091,52 @@ export default function App() {
       const { error } = await supabase.from("subtasks").delete().eq("id", id);
       if (error) { console.error("Subtask delete failed:", error); }
     }
+  };
+
+  // ─── Attachment handlers ───────────────────────────────────────────────────
+  const handleUploadAttachment = async (milestoneId, file) => {
+    if (!file || !milestoneId) return;
+    if (demoMode) {
+      alert("Attachments require Supabase — sign in with your email to use this.");
+      return;
+    }
+    if (!supabase) return;
+    const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+    const storagePath = `${milestoneId}/${Date.now()}_${safeName}`;
+    const { error: upErr } = await supabase.storage.from("attachments").upload(storagePath, file, { upsert: false });
+    if (upErr) { console.error("Upload failed:", upErr); alert(`Upload failed: ${upErr.message}`); return; }
+    const payload = {
+      milestone_id: milestoneId,
+      storage_path: storagePath,
+      filename: file.name,
+      mime: file.type || null,
+      size_bytes: file.size || null,
+      uploaded_by: user?.id || null,
+    };
+    const { data: inserted, error } = await supabase.from("milestone_attachments").insert([payload]).select().single();
+    if (error) {
+      console.error("Attachment record failed:", error);
+      await supabase.storage.from("attachments").remove([storagePath]);
+      alert(`Could not save attachment: ${error.message}`);
+      return;
+    }
+    if (inserted) setAttachments([inserted, ...attachments]);
+  };
+
+  const handleOpenAttachment = async (att) => {
+    if (!supabase) return;
+    const { data, error } = await supabase.storage.from("attachments").createSignedUrl(att.storage_path, 60 * 10);
+    if (error) { alert(`Could not open: ${error.message}`); return; }
+    window.open(data.signedUrl, "_blank");
+  };
+
+  const handleDeleteAttachment = async (att) => {
+    if (!confirm(`Delete ${att.filename}?`)) return;
+    if (!supabase) return;
+    await supabase.storage.from("attachments").remove([att.storage_path]);
+    const { error } = await supabase.from("milestone_attachments").delete().eq("id", att.id);
+    if (error) { alert(`Delete failed: ${error.message}`); return; }
+    setAttachments(attachments.filter(a => a.id !== att.id));
   };
 
   const filteredPillars = pillars.filter(p => {
@@ -1138,7 +1252,7 @@ export default function App() {
             const pillarMilestones = milestones.filter(m => m.pillar_id === pillar.id);
             const canEdit = pillar.owner_id === user.id || isAdmin;
             return (
-              <VibrantPillarCard key={pillar.id} pillar={pillar} milestones={pillarMilestones} subtasks={subtasks} onCreateSubtask={handleCreateSubtask} onToggleSubtask={handleToggleSubtask} onDeleteSubtask={handleDeleteSubtask} onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }} onDeleteMilestone={handleDeleteMilestone} onCycleMilestoneStatus={handleCycleMilestoneStatus} isExpanded={expandedPillar === pillar.id} onToggle={() => setExpandedPillar(expandedPillar === pillar.id ? null : pillar.id)} onEdit={() => { setEditingPillar(pillar); setShowPillarForm(true); }} onDelete={() => handleDeletePillar(pillar.id)} onShare={() => {}} canEdit={canEdit} />
+              <VibrantPillarCard key={pillar.id} pillar={pillar} milestones={pillarMilestones} subtasks={subtasks} onCreateSubtask={handleCreateSubtask} onToggleSubtask={handleToggleSubtask} onDeleteSubtask={handleDeleteSubtask} onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }} onDeleteMilestone={handleDeleteMilestone} onCycleMilestoneStatus={handleCycleMilestoneStatus} attachments={attachments} onUploadAttachment={handleUploadAttachment} onOpenAttachment={handleOpenAttachment} onDeleteAttachment={handleDeleteAttachment} isExpanded={expandedPillar === pillar.id} onToggle={() => setExpandedPillar(expandedPillar === pillar.id ? null : pillar.id)} onEdit={() => { setEditingPillar(pillar); setShowPillarForm(true); }} onDelete={() => handleDeletePillar(pillar.id)} onShare={() => {}} canEdit={canEdit} />
             );
           })
         )}
