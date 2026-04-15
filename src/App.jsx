@@ -870,10 +870,42 @@ export default function App() {
     const pMilestones = milestones.filter(m => m.pillar_id === p.id);
     const progress = p.progress_override ?? calculateProgress(pMilestones);
     const status = determineStatus(p.due_date, progress);
-    const matchesSearch = !searchQuery || p.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      !searchQuery ||
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pMilestones.some(m => (m.name || "").toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === "all" || status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // ─── Stats for the overview strip ──────────────────────────────────────────
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfWeek = new Date(startOfToday); endOfWeek.setDate(endOfWeek.getDate() + 7);
+  const totalMilestones = milestones.length;
+  const doneMilestones = milestones.filter(m => m.status === "done").length;
+  const overdueCount = milestones.filter(m => m.due_date && m.status !== "done" && new Date(m.due_date) < startOfToday).length;
+  const dueThisWeekCount = milestones.filter(m => {
+    if (!m.due_date || m.status === "done") return false;
+    const d = new Date(m.due_date);
+    return d >= startOfToday && d < endOfWeek;
+  }).length;
+  const completionPct = totalMilestones ? Math.round((doneMilestones / totalMilestones) * 100) : 0;
+
+  // ─── Keyboard shortcut: press "N" to open new milestone ────────────────────
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target && ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        setEditingMilestone(null);
+        setShowMilestoneForm(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (!user && !demoMode) return <VibrantAuthScreen onDemoMode={handleDemoMode} onAuthenticated={handleAuthenticated} />;
   if (loading) return <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-purple-600" /></div>;
@@ -898,9 +930,32 @@ export default function App() {
         </div>
 
         <div className="px-4 pb-4 space-y-3">
+          {/* Stats overview strip */}
+          <div className="grid grid-cols-5 gap-2">
+            <div className="bg-white rounded-xl p-2 text-center border-2 border-purple-100 shadow-sm">
+              <div className="text-lg font-black text-purple-600">{totalMilestones}</div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Total</div>
+            </div>
+            <div className="bg-white rounded-xl p-2 text-center border-2 border-emerald-100 shadow-sm">
+              <div className="text-lg font-black text-emerald-600">{doneMilestones}</div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Done</div>
+            </div>
+            <div className="bg-white rounded-xl p-2 text-center border-2 border-blue-100 shadow-sm">
+              <div className="text-lg font-black text-blue-600">{dueThisWeekCount}</div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Week</div>
+            </div>
+            <div className="bg-white rounded-xl p-2 text-center border-2 border-rose-100 shadow-sm">
+              <div className="text-lg font-black text-rose-600">{overdueCount}</div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Overdue</div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-2 text-center shadow-sm">
+              <div className="text-lg font-black text-white">{completionPct}%</div>
+              <div className="text-[10px] font-bold text-white/80 uppercase tracking-wide">Progress</div>
+            </div>
+          </div>
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search pillars..." className="w-full pl-12 pr-4 py-4 bg-white border-2 border-purple-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium transition-all shadow-sm" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search pillars & milestones... (press N for new)" className="w-full pl-12 pr-4 py-4 bg-white border-2 border-purple-200 rounded-2xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-base font-medium transition-all shadow-sm" />
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {["all", "Critical", "At Risk", "On Track"].map(status => (
