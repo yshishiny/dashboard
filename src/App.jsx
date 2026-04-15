@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  AlertTriangle, BarChart3, Bell, BellRing, Calendar, CheckCircle2, ChevronDown, ChevronRight, ChevronUp,
-  Clock, Crown, Edit3, Eye, Filter, Flag, ListTodo, Loader2, LogOut, Mail, Menu,
-  MoreVertical, Phone, Plus, Search, Settings, Shield, Share2, ShieldCheck,
-  Paperclip, Sparkles, Target, Trash2, TrendingUp, Upload, User, UserPlus, Users, X, Zap
+  AlertTriangle, BarChart3, Bell, BellRing, Brain, Calendar, CheckCircle2, ChevronDown, ChevronRight, ChevronUp,
+  Clock, Crown, Edit3, Eye, Filter, Flag, Grid3x3, ListTodo, Loader2, LogOut, Mail, Menu,
+  MoreVertical, Phone, Plus, Repeat, Search, Settings, Shield, Share2, ShieldCheck,
+  Paperclip, Sparkles, Target, Trash2, TrendingUp, Upload, User, UserPlus, Users, Wand2, X, Zap
 } from "lucide-react";
 import { supabase, hasSupabaseEnv } from "./supabase";
 
@@ -66,6 +66,26 @@ const MILESTONE_STATUS = {
   }
 };
 const MILESTONE_STATUS_FALLBACK = MILESTONE_STATUS.not_started;
+
+// ─── Eisenhower Matrix ────────────────────────────────────────────────────────
+const EISENHOWER_QUADRANTS = {
+  q1: { key: "q1", label: "Do First",  desc: "Urgent + Important",         badge: "bg-rose-100 text-rose-700",   dot: "bg-rose-500",  border: "border-rose-300",  header: "from-rose-500 to-pink-600",    icon: "🔴" },
+  q2: { key: "q2", label: "Schedule",  desc: "Important, Not Urgent",      badge: "bg-blue-100 text-blue-700",   dot: "bg-blue-500",  border: "border-blue-300",  header: "from-blue-500 to-indigo-600",  icon: "🔵" },
+  q3: { key: "q3", label: "Delegate",  desc: "Urgent, Not Important",      badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500", border: "border-amber-300", header: "from-amber-400 to-orange-500", icon: "🟡" },
+  q4: { key: "q4", label: "Eliminate", desc: "Not Urgent + Not Important", badge: "bg-slate-100 text-slate-600", dot: "bg-slate-400", border: "border-slate-200", header: "from-slate-400 to-slate-500",  icon: "⚪" },
+};
+
+function getEisenhower(m) {
+  if (m.urgent && m.important)   return EISENHOWER_QUADRANTS.q1;
+  if (!m.urgent && m.important)  return EISENHOWER_QUADRANTS.q2;
+  if (m.urgent && !m.important)  return EISENHOWER_QUADRANTS.q3;
+  return EISENHOWER_QUADRANTS.q4;
+}
+
+// Only show badge if user has explicitly set urgent or important
+function hasEisenhower(m) {
+  return m.urgent === true || m.important === true;
+}
 
 // ─── Demo Data ────────────────────────────────────────────────────────────────
 const DEMO_PROFILES = [
@@ -292,6 +312,19 @@ function MilestoneRow({ m, idx, mCfg, subs, atts = [], canEdit, onCreateSubtask,
             {atts.length > 0 && (
               <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
                 <Paperclip className="w-3 h-3" /> {atts.length}
+              </span>
+            )}
+            {hasEisenhower(m) && (() => {
+              const eq = getEisenhower(m);
+              return (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${eq.badge}`}>
+                  {eq.icon} {eq.label}
+                </span>
+              );
+            })()}
+            {m.recurrence_rule && (
+              <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-violet-100 text-violet-700 inline-flex items-center gap-1">
+                <Repeat className="w-3 h-3" /> {m.recurrence_rule}
               </span>
             )}
           </div>
@@ -1043,7 +1076,7 @@ function PillarMembersPanel({ pillarId, members, profiles, ownerId, onAdd, onRem
 
 function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData, profiles = [], members = [] }) {
   const isEditing = initialData && !initialData.__isNew && initialData.id;
-  const [formData, setFormData] = useState({ pillar_id: "", name: "", status: "not_started", due_date: "", notes: "", assigned_to: "" });
+  const [formData, setFormData] = useState({ pillar_id: "", name: "", status: "not_started", due_date: "", notes: "", assigned_to: "", urgent: false, important: false, recurrence_rule: "" });
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -1053,9 +1086,12 @@ function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData, profil
         due_date: initialData.due_date || "",
         notes: initialData.notes || "",
         assigned_to: initialData.assigned_to || "",
+        urgent: initialData.urgent || false,
+        important: initialData.important || false,
+        recurrence_rule: initialData.recurrence_rule || "",
       });
     } else {
-      setFormData({ pillar_id: pillars[0]?.id || "", name: "", status: "not_started", due_date: "", notes: "", assigned_to: "" });
+      setFormData({ pillar_id: pillars[0]?.id || "", name: "", status: "not_started", due_date: "", notes: "", assigned_to: "", urgent: false, important: false, recurrence_rule: "" });
     }
   }, [initialData, pillars, isOpen]);
 
@@ -1275,6 +1311,80 @@ function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData, profil
                     <div className="h-0.5 bg-purple-300 rounded-full w-1/2" />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Eisenhower Priority card */}
+            <div className="relative bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-3xl border-2 border-indigo-200/60 shadow-md overflow-hidden">
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Grid3x3 className="w-5 h-5 text-indigo-600" />
+                  <div className="text-xl font-black text-slate-900">Priority Matrix</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Urgent",     field: "urgent",    color: "from-rose-500 to-pink-600",     activeText: "text-white" },
+                    { label: "Important",  field: "important", color: "from-indigo-500 to-blue-600",   activeText: "text-white" },
+                  ].map(item => (
+                    <button
+                      key={item.field}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, [item.field]: !formData[item.field] })}
+                      className={`py-3 rounded-2xl text-sm font-black border-2 transition-all ${
+                        formData[item.field]
+                          ? `bg-gradient-to-r ${item.color} text-white border-transparent shadow-lg`
+                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const eq = getEisenhower(formData);
+                  return (
+                    <div className={`mt-2 px-4 py-2 rounded-xl text-xs font-bold text-center ${eq.badge}`}>
+                      {eq.icon} {eq.label} — {eq.desc}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Recurrence card */}
+            <div className="relative bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 rounded-3xl border-2 border-violet-200/60 shadow-md overflow-hidden">
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Repeat className="w-5 h-5 text-violet-600" />
+                  <div className="text-xl font-black text-slate-900">Recurrence</div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { v: "",           label: "None" },
+                    { v: "daily",      label: "Daily" },
+                    { v: "weekly",     label: "Weekly" },
+                    { v: "monthly",    label: "Monthly" },
+                    { v: "quarterly",  label: "Quarterly" },
+                  ].map(opt => (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, recurrence_rule: opt.v })}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                        formData.recurrence_rule === opt.v
+                          ? "bg-violet-600 text-white border-violet-600 shadow"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-violet-400"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {formData.recurrence_rule && (
+                  <p className="mt-2 text-[11px] text-violet-600 font-semibold">
+                    ↻ A new occurrence will be created automatically when this milestone is marked done.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1679,8 +1789,9 @@ function BoardView({ pillars, milestones, subtasks, attachments, profiles = [], 
   const orderedKeys = Object.keys(groups).sort();
 
   return (
-    <div className="overflow-x-auto px-4">
-      <div className="min-w-max space-y-6 pb-4">
+    // Outer div is NOT overflow-x-auto — allows normal vertical page scroll
+    <div className="px-4">
+      <div className="space-y-6 pb-4">
         {orderedKeys.map((cat, catIdx) => {
           const palette = COLUMN_PALETTE[catIdx % COLUMN_PALETTE.length];
           const colsInGroup = groups[cat];
@@ -1693,8 +1804,8 @@ function BoardView({ pillars, milestones, subtasks, attachments, profiles = [], 
                 <span className="text-white/80 text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">{colsInGroup.length}</span>
               </div>
 
-              {/* Columns */}
-              <div className="flex gap-4">
+              {/* Columns — horizontally scrollable per row so vertical page scroll stays intact */}
+              <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4">
                 {colsInGroup.map((pillar, idx) => {
                   const p2 = COLUMN_PALETTE[(catIdx + idx) % COLUMN_PALETTE.length];
                   const pMilestones = milestones.filter(m => m.pillar_id === pillar.id);
@@ -1759,6 +1870,19 @@ function BoardView({ pillars, milestones, subtasks, attachments, profiles = [], 
                                 {mAtts.length > 0 && (
                                   <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-indigo-50 text-indigo-700 inline-flex items-center gap-1">
                                     <Paperclip className="w-2.5 h-2.5" /> {mAtts.length}
+                                  </span>
+                                )}
+                                {hasEisenhower(m) && (() => {
+                                  const eq = getEisenhower(m);
+                                  return (
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${eq.badge}`}>
+                                      {eq.icon} {eq.label}
+                                    </span>
+                                  );
+                                })()}
+                                {m.recurrence_rule && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-violet-50 text-violet-700 inline-flex items-center gap-1">
+                                    <Repeat className="w-2.5 h-2.5" /> {m.recurrence_rule}
                                   </span>
                                 )}
                                 {m.assigned_to && (() => {
@@ -2628,6 +2752,253 @@ function AdminProjectAccess({ pillars, profiles, members, onRefresh }) {
   );
 }
 
+// ─── EisenhowerView ───────────────────────────────────────────────────────────
+function EisenhowerView({ milestones, pillars, profiles, onEditMilestone, onCycleMilestoneStatus }) {
+  const quadrantOrder = ["q1", "q2", "q3", "q4"];
+  const byQuadrant = quadrantOrder.reduce((acc, k) => { acc[k] = []; return acc; }, {});
+  milestones.forEach(m => { const q = getEisenhower(m); byQuadrant[q.key].push(m); });
+
+  return (
+    <div className="px-4 py-6 pb-24">
+      <div className="mb-6 text-center">
+        <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full shadow-lg">
+          <Grid3x3 className="w-5 h-5 text-white" />
+          <span className="text-white font-black text-sm tracking-wide">Eisenhower Priority Matrix</span>
+        </div>
+        <p className="text-slate-500 text-xs mt-2 font-medium">Organise by urgency × importance</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {quadrantOrder.map(key => {
+          const q = EISENHOWER_QUADRANTS[key];
+          const items = byQuadrant[key];
+          return (
+            <div key={key} className={`rounded-3xl border-2 ${q.border} bg-white shadow-md overflow-hidden`}>
+              {/* Header */}
+              <div className={`bg-gradient-to-r ${q.header} px-5 py-3 flex items-center justify-between`}>
+                <div>
+                  <div className="text-white font-black text-base">{q.icon} {q.label}</div>
+                  <div className="text-white/80 text-xs font-medium">{q.desc}</div>
+                </div>
+                <div className="bg-white/20 rounded-full px-3 py-1 text-white font-black text-sm">{items.length}</div>
+              </div>
+
+              {/* Milestones */}
+              <div className="divide-y divide-slate-100">
+                {items.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-sm font-medium">No milestones here</div>
+                ) : items.map(m => {
+                  const pillar = pillars.find(p => p.id === m.pillar_id);
+                  const assignee = profiles.find(p => p.id === m.assigned_to);
+                  const st = MILESTONE_STATUSES[m.status] || MILESTONE_STATUS_FALLBACK;
+                  return (
+                    <div key={m.id} className="px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer group"
+                      onClick={() => onEditMilestone(m)}>
+                      <div className="flex items-start gap-3">
+                        <button onClick={e => { e.stopPropagation(); onCycleMilestoneStatus(m); }}
+                          className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${st.bg}`}>
+                          <st.Icon className={`w-3 h-3 ${st.text}`} />
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-slate-800 truncate">{m.name}</div>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {pillar && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: (pillar.color||"#8b5cf6")+"22", color: pillar.color||"#8b5cf6" }}>
+                                {pillar.icon} {pillar.name}
+                              </span>
+                            )}
+                            {m.due_date && (
+                              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${new Date(m.due_date) < new Date() && m.status !== "done" ? "text-rose-500" : "text-slate-400"}`}>
+                                <Calendar className="w-3 h-3" />{m.due_date}
+                              </span>
+                            )}
+                            {assignee && (
+                              <span className="text-[10px] text-slate-400 font-medium">{assignee.full_name}</span>
+                            )}
+                            {m.recurrence_rule && (
+                              <span className="text-[10px] font-bold text-teal-600 flex items-center gap-0.5">
+                                <Repeat className="w-3 h-3" />{m.recurrence_rule}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── AiProjectModal ───────────────────────────────────────────────────────────
+function AiProjectModal({ isOpen, onClose, onConfirm, pillars }) {
+  const [step, setStep] = useState("input"); // "input" | "loading" | "preview" | "error"
+  const [description, setDescription] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const reset = () => { setStep("input"); setDescription(""); setPreview(null); setErrorMsg(""); };
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleGenerate = async () => {
+    if (!description.trim()) return;
+    setStep("loading");
+    try {
+      const res = await fetch("/api/ai-create-project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: description.trim() }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setPreview(data);
+      setStep("preview");
+    } catch (e) {
+      setErrorMsg(e.message || "AI generation failed. Please try again.");
+      setStep("error");
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!preview) return;
+    await onConfirm(preview);
+    handleClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+        onClick={e => e.target === e.currentTarget && handleClose()}>
+        <motion.div initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 60 }}
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+
+          {/* Header */}
+          <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 px-6 py-4 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-white/20 flex items-center justify-center">
+                <Wand2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-white font-black text-base">AI Project Creator</div>
+                <div className="text-white/70 text-xs">Describe your project, Claude builds it</div>
+              </div>
+            </div>
+            <button onClick={handleClose} className="text-white/70 hover:text-white transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="overflow-y-auto flex-1 p-6">
+            {/* Input step */}
+            {step === "input" && (
+              <div className="space-y-4">
+                <p className="text-slate-600 text-sm font-medium">Describe your project in plain language. Claude will generate a complete plan with milestones, priorities, and suggested timelines.</p>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="e.g. Launch a new mobile app for tracking daily habits — we need user research, UI design, development sprints, QA testing, and a go-to-market plan. Target launch in 3 months."
+                  className="w-full h-36 px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-sm font-medium text-slate-700 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 resize-none transition-all"
+                  autoFocus
+                />
+                <div className="flex gap-3">
+                  <button onClick={handleClose} className="flex-1 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">Cancel</button>
+                  <button onClick={handleGenerate} disabled={!description.trim()}
+                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-pink-600 text-white font-black text-sm shadow-lg disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-xl transition-all">
+                    <Sparkles className="w-4 h-4" /> Generate Plan
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loading step */}
+            {step === "loading" && (
+              <div className="flex flex-col items-center justify-center py-12 gap-4">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-100 to-pink-100 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+                </div>
+                <div className="text-center">
+                  <div className="text-slate-800 font-black text-base">Generating your project…</div>
+                  <div className="text-slate-500 text-sm mt-1">Claude is crafting milestones and priorities</div>
+                </div>
+              </div>
+            )}
+
+            {/* Error step */}
+            {step === "error" && (
+              <div className="space-y-4">
+                <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-rose-500" />
+                    <span className="text-rose-700 font-bold text-sm">Generation Failed</span>
+                  </div>
+                  <p className="text-rose-600 text-sm">{errorMsg}</p>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleClose} className="flex-1 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm">Cancel</button>
+                  <button onClick={() => setStep("input")} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-pink-600 text-white font-black text-sm">Try Again</button>
+                </div>
+              </div>
+            )}
+
+            {/* Preview step */}
+            {step === "preview" && preview && (
+              <div className="space-y-4">
+                {/* Pillar preview */}
+                <div className="bg-gradient-to-br from-slate-50 to-purple-50 rounded-2xl border-2 border-purple-100 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-2xl">{preview.pillar?.icon || "🎯"}</span>
+                    <span className="font-black text-slate-900 text-base">{preview.pillar?.name}</span>
+                  </div>
+                  {preview.pillar?.description && <p className="text-slate-500 text-xs font-medium">{preview.pillar.description}</p>}
+                </div>
+
+                {/* Milestones preview */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ListTodo className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm font-black text-slate-700">{preview.milestones?.length || 0} Milestones</span>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {(preview.milestones || []).map((m, i) => {
+                      const q = getEisenhower(m);
+                      return (
+                        <div key={i} className="flex items-center gap-3 bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-sm">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0 ${q.badge}`}>{q.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-slate-800 truncate">{m.name}</div>
+                            {m.due_date && <div className="text-[10px] text-slate-400 font-medium">{m.due_date}</div>}
+                          </div>
+                          {m.recurrence_rule && <Repeat className="w-3 h-3 text-teal-500 flex-shrink-0" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setStep("input")} className="flex-1 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">Edit Prompt</button>
+                  <button onClick={handleConfirm}
+                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-sm shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all">
+                    <CheckCircle2 className="w-4 h-4" /> Create Project
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [demoMode, setDemoMode] = useState(!hasSupabaseEnv);
@@ -2666,6 +3037,7 @@ export default function App() {
   const [showPillarForm, setShowPillarForm] = useState(false);
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
   const [editingPillar, setEditingPillar] = useState(null);
   const [editingMilestone, setEditingMilestone] = useState(null);
 
@@ -2733,7 +3105,44 @@ export default function App() {
     due_date: data.due_date ? data.due_date : null,
     notes: data.notes || null,
     assigned_to: data.assigned_to || null,
+    urgent: data.urgent || false,
+    important: data.important || false,
+    recurrence_rule: data.recurrence_rule || null,
   });
+
+  const handleAiCreateProject = async (preview) => {
+    if (!preview?.pillar) return;
+    const { pillar: pillarData, milestones: milestonesData = [] } = preview;
+    try {
+      let newPillarId;
+      if (demoMode) {
+        newPillarId = `p${Date.now()}`;
+        const newPillar = { id: newPillarId, name: pillarData.name, description: pillarData.description || "", icon: pillarData.icon || "🎯", color: pillarData.color || "#8b5cf6", owner_id: user?.id, status: "On Track" };
+        setPillars(prev => [...prev, newPillar]);
+      } else if (supabase) {
+        const { data: inserted, error } = await supabase.from("pillars").insert([{
+          name: pillarData.name, description: pillarData.description || "", icon: pillarData.icon || "🎯",
+          color: pillarData.color || "#8b5cf6", owner_id: user?.id, status: "On Track",
+        }]).select().single();
+        if (error) { alert(`Could not create project: ${error.message}`); return; }
+        newPillarId = inserted.id;
+        setPillars(prev => [...prev, inserted]);
+      }
+      if (newPillarId && milestonesData.length > 0) {
+        const mPayloads = milestonesData.map(m => sanitizeMilestone({ ...m, pillar_id: newPillarId }));
+        if (demoMode) {
+          setMilestones(prev => [...prev, ...mPayloads.map((mp, i) => ({ ...mp, id: `m${Date.now()}${i}` }))]);
+        } else if (supabase) {
+          const { data: inserted, error } = await supabase.from("milestones").insert(mPayloads).select();
+          if (!error && inserted) setMilestones(prev => [...prev, ...inserted]);
+        }
+      }
+      setViewMode("cards");
+    } catch (e) {
+      console.error("AI project creation failed:", e);
+      alert("Failed to create project. Please try again.");
+    }
+  };
 
   const handleCreateMilestone = async (data) => {
     const payload = sanitizeMilestone(data);
@@ -2977,6 +3386,7 @@ export default function App() {
                 { id: "hub", label: "Hub" },
                 { id: "cards", label: "Cards" },
                 { id: "board", label: "Board" },
+                { id: "matrix", label: "Matrix" },
                 { id: "gantt", label: "Time" },
                 ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
               ].map(v => (
@@ -3068,6 +3478,7 @@ export default function App() {
                   { id: "hub", label: "Hub" },
                   { id: "cards", label: "Cards" },
                   { id: "board", label: "Board" },
+                  { id: "matrix", label: "⊞ Matrix" },
                   { id: "gantt", label: "Timeline" },
                   ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
                 ].map(v => (
@@ -3126,6 +3537,14 @@ export default function App() {
             onCycleMilestoneStatus={handleCycleMilestoneStatus}
             onAddMilestone={(pillarId) => { setEditingMilestone({ pillar_id: pillarId, __isNew: true }); setShowMilestoneForm(true); }}
           />
+        ) : viewMode === "matrix" ? (
+          <EisenhowerView
+            milestones={milestones}
+            pillars={filteredPillars}
+            profiles={profiles}
+            onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
+            onCycleMilestoneStatus={handleCycleMilestoneStatus}
+          />
         ) : viewMode === "gantt" ? (
           <GanttView pillars={filteredPillars} milestones={milestones} />
         ) : viewMode === "admin" && isAdmin ? (
@@ -3157,13 +3576,26 @@ export default function App() {
         )}
       </div>
 
-      {/* FAB */}
-      <motion.button whileHover={{ scale: 1.1, rotate: 90 }} whileTap={{ scale: 0.9 }} onClick={() => { setEditingPillar(null); setShowPillarForm(true); }} className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full shadow-2xl flex items-center justify-center z-30">
-        <Plus className="w-8 h-8" />
-      </motion.button>
+      {/* FAB stack */}
+      <div className="fixed bottom-6 right-6 flex flex-col items-center gap-3 z-30">
+        {/* AI create button */}
+        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+          onClick={() => setShowAiModal(true)}
+          className="w-12 h-12 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-full shadow-xl flex items-center justify-center"
+          title="Create project with AI">
+          <Wand2 className="w-5 h-5" />
+        </motion.button>
+        {/* New pillar button */}
+        <motion.button whileHover={{ scale: 1.1, rotate: 90 }} whileTap={{ scale: 0.9 }}
+          onClick={() => { setEditingPillar(null); setShowPillarForm(true); }}
+          className="w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full shadow-2xl flex items-center justify-center">
+          <Plus className="w-8 h-8" />
+        </motion.button>
+      </div>
 
       <PillarForm isOpen={showPillarForm} onClose={() => { setShowPillarForm(false); setEditingPillar(null); }} onSubmit={editingPillar ? handleUpdatePillar : handleCreatePillar} initialData={editingPillar} members={members} profiles={profiles} currentUserId={user?.id} onAddMember={handleAddMemberByEmail} onRemoveMember={handleRemoveMember} />
       <MilestoneForm isOpen={showMilestoneForm} onClose={() => { setShowMilestoneForm(false); setEditingMilestone(null); }} onSubmit={editingMilestone && editingMilestone.id && !editingMilestone.__isNew ? handleUpdateMilestone : handleCreateMilestone} pillars={pillars} initialData={editingMilestone} profiles={profiles} members={members} />
+      <AiProjectModal isOpen={showAiModal} onClose={() => setShowAiModal(false)} onConfirm={handleAiCreateProject} pillars={pillars} />
 
       <AnimatePresence>
         {showMenu && (

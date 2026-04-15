@@ -151,6 +151,161 @@ app.get("/api/trigger-notifications", async (req, res) => {
   res.json({ status: "Notification check triggered" });
 });
 
+// ─── AI Project Creator ───────────────────────────────────────────────────────
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+app.post("/api/ai-create-project", express.json(), async (req, res) => {
+  const { description } = req.body || {};
+  if (!description) return res.status(400).json({ error: "description is required" });
+  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const systemPrompt = `You are a project planning assistant. Given a project description, return a JSON object (no markdown, no code fences) with this exact shape:
+{
+  "pillar": { "name": "...", "description": "...", "icon": "...", "color": "#xxxxxx" },
+  "milestones": [
+    { "name": "...", "status": "not_started", "due_date": "YYYY-MM-DD", "notes": "...", "urgent": true|false, "important": true|false, "recurrence_rule": null|"daily"|"weekly"|"monthly"|"quarterly" }
+  ]
+}
+Rules:
+- icon must be a single emoji
+- color must be a hex colour matching the theme
+- Produce 6-12 milestones covering the full project lifecycle
+- Assign realistic due_date values relative to today (${today})
+- Set urgent/important flags using the Eisenhower matrix (urgent = needs action soon, important = high impact)
+- recurrence_rule is null unless the milestone is genuinely recurring
+- Return ONLY the JSON object, nothing else.`;
+
+  try {
+    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-6",
+        max_tokens: 2048,
+        messages: [{ role: "user", content: description }],
+        system: systemPrompt,
+      }),
+    });
+
+    if (!anthropicRes.ok) {
+      const errText = await anthropicRes.text();
+      console.error("[AI] Anthropic API error:", errText);
+      return res.status(502).json({ error: `Anthropic API error: ${anthropicRes.status}` });
+    }
+
+    const anthropicData = await anthropicRes.json();
+    const rawText = anthropicData.content?.[0]?.text || "";
+
+    // Strip any accidental markdown fences
+    const cleaned = rawText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      console.error("[AI] Failed to parse JSON:", cleaned.slice(0, 300));
+      return res.status(502).json({ error: "AI returned invalid JSON. Please try again." });
+    }
+
+    res.json(parsed);
+  } catch (err) {
+    console.error("[AI] Request failed:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Email Daily Digest ───────────────────────────────────────────────────────
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const DIGEST_FROM = process.env.DIGEST_FROM_EMAIL || "digest@yourapp.com";
+
+const sendDailyDigest = async () => {
+  console.log("[Digest] Running daily email digest...");
+  if (!RESEND_API_KEY) { console.log("[Digest] RESEND_API_KEY not set — skipping"); return; }
+  if (!supabaseAdmin) { console.log("[Digest] supabaseAdmin not available — skipping"); return; }
+
+  const today = new Date().toISOString().split("T")[0];
+  const in7Days = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+
+  try {
+    const { data: profiles } = await supabaseAdmin.from("profiles").select("*").not("email", "is", null);
+    if (!profiles?.length) return;
+
+    for (const profile of profiles) {
+      const { data: milestones } = await supabaseAdmin
+        .from("milestones")
+        .select("*, pillars!inner(name, icon, owner_id)")
+        .lte("due_date", in7Days)
+        .neq("status", "done");
+
+      const myMilestones = (milestones || []).filter(m =>
+        m.assigned_to === profile.id || m.pillars?.owner_id === profile.id
+      );
+
+      if (!myMilestones.length) continue;
+
+      const overdue = myMilestones.filter(m => m.due_date < today);
+      const dueThisWeek = myMilestones.filter(m => m.due_date >= today);
+      const doFirst = myMilestones.filter(m => m.urgent && m.important);
+
+      const rows = (items, label) => items.length
+        ? `<h3 style="color:#7c3aed;margin:16px 0 8px">${label} (${items.length})</h3>` +
+          items.map(m => `<div style="border-left:3px solid #7c3aed;padding:6px 12px;margin:4px 0;background:#f9f7ff;border-radius:4px">
+            <strong>${m.pillars?.icon || ""} ${m.name}</strong>
+            <span style="color:#888;font-size:12px;margin-left:8px">${m.pillars?.name || ""} · ${m.due_date || "no date"}</span>
+          </div>`).join("")
+        : "";
+
+      const html = `
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#fff;padding:24px;border-radius:12px">
+  <div style="background:linear-gradient(135deg,#7c3aed,#db2777);padding:20px;border-radius:8px;margin-bottom:20px">
+    <h1 style="color:white;margin:0;font-size:20px">📋 Your Daily Project Digest</h1>
+    <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:14px">${new Date().toDateString()}</p>
+  </div>
+  <p>Hi ${profile.full_name || profile.email},</p>
+  ${rows(doFirst, "🔴 Do First — Urgent & Important")}
+  ${rows(overdue, "⚠️ Overdue")}
+  ${rows(dueThisWeek, "📅 Due This Week")}
+  <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
+  <p style="color:#888;font-size:12px;text-align:center">Project Pillars Dashboard — <a href="https://roumi0212.netlify.app" style="color:#7c3aed">Open Dashboard</a></p>
+</div>`;
+
+      const emailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: DIGEST_FROM,
+          to: profile.email,
+          subject: `📋 Daily Project Digest — ${new Date().toDateString()}`,
+          html,
+        }),
+      });
+
+      if (emailRes.ok) {
+        console.log(`[Digest] Sent to ${profile.email}`);
+      } else {
+        const err = await emailRes.text();
+        console.error(`[Digest] Failed for ${profile.email}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[Digest] Error:", err);
+  }
+};
+
+// Run daily digest at 7:00 AM UTC
+cron.schedule("0 7 * * *", sendDailyDigest);
+
+// Manual trigger
+app.get("/api/trigger-digest", async (req, res) => {
+  await sendDailyDigest();
+  res.json({ status: "Digest triggered" });
+});
+
 // Test SMS ping utility
 app.post("/api/test-sms", express.json(), async (req, res) => {
   const { phone_number } = req.body;
