@@ -1041,6 +1041,260 @@ function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData }) {
   );
 }
 
+// ─── Hub View (Landing dashboard) ────────────────────────────────────────────
+function HubView({ pillars, milestones, subtasks, attachments, currentProfile, onEditMilestone, onCycleMilestoneStatus, onGoToBoard, onGoToTimeline }) {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const in14 = new Date(startOfToday); in14.setDate(in14.getDate() + 14);
+
+  // Priority sort for featured milestone cards
+  const priorityScore = (m) => {
+    if (m.status === "done") return 10;
+    if (m.status === "blocked") return 0;
+    if (!m.due_date) return 5;
+    const d = new Date(m.due_date);
+    const days = (d - startOfToday) / 86400000;
+    if (days < 0) return 0; // overdue = highest priority
+    return Math.max(1, Math.min(9, days));
+  };
+  const featured = [...milestones]
+    .filter(m => m.status !== "done")
+    .sort((a, b) => priorityScore(a) - priorityScore(b))
+    .slice(0, 6);
+
+  // Upcoming deadlines (next 14 days)
+  const upcoming = milestones
+    .filter(m => m.due_date && m.status !== "done")
+    .filter(m => {
+      const d = new Date(m.due_date);
+      return d >= startOfToday && d <= in14;
+    })
+    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+    .slice(0, 6);
+
+  // Recent activity — most recently created milestones as proxy
+  const recent = [...milestones]
+    .filter(m => m.created_at)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 5);
+
+  // Pillar progress for the chart
+  const pillarStats = pillars.map(p => {
+    const pm = milestones.filter(m => m.pillar_id === p.id);
+    const progress = p.progress_override ?? calculateProgress(pm);
+    return { id: p.id, title: p.title, progress, count: pm.length };
+  }).sort((a, b) => b.count - a.count);
+
+  const totalM = milestones.length;
+  const doneM = milestones.filter(m => m.status === "done").length;
+  const overdueM = milestones.filter(m => m.due_date && m.status !== "done" && new Date(m.due_date) < startOfToday).length;
+  const completionPct = totalM ? Math.round((doneM / totalM) * 100) : 0;
+
+  const initials = (name) => (name || "?").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
+
+  // Priority/schedule derivations for card display
+  const deriveCard = (m) => {
+    const mCfg = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
+    const days = m.due_date ? Math.ceil((new Date(m.due_date) - startOfToday) / 86400000) : null;
+    let schedule = "On Track", scheduleTone = "text-emerald-700";
+    if (m.status === "blocked") { schedule = "Blocked"; scheduleTone = "text-rose-700"; }
+    else if (days !== null) {
+      if (days < 0) { schedule = "Behind Schedule"; scheduleTone = "text-rose-700"; }
+      else if (days <= 3) { schedule = "Due Soon"; scheduleTone = "text-amber-700"; }
+      else if (days > 30) { schedule = "Ahead of Schedule"; scheduleTone = "text-emerald-700"; }
+    }
+    let priority = "Medium", pTone = "bg-amber-400/90";
+    if (m.status === "blocked" || (days !== null && days < 0)) { priority = "High"; pTone = "bg-rose-500/90"; }
+    else if (days !== null && days > 30) { priority = "Low"; pTone = "bg-emerald-500/90"; }
+    return { mCfg, days, schedule, scheduleTone, priority, pTone };
+  };
+
+  return (
+    <div className="px-4 space-y-8">
+      {/* Title */}
+      <div>
+        <h1 className="text-5xl md:text-6xl font-black tracking-tight bg-gradient-to-br from-slate-900 to-slate-600 bg-clip-text text-transparent inline-block border-2 border-violet-400 px-4 py-2 rounded-lg">
+          PROJECT HUB
+        </h1>
+        {currentProfile && (
+          <p className="mt-3 text-sm font-semibold text-slate-500">
+            Welcome back, <span className="text-slate-800">{currentProfile.full_name || currentProfile.email}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Pillars", value: pillars.length, tone: "from-violet-500 to-indigo-600" },
+          { label: "Milestones", value: totalM, tone: "from-sky-500 to-blue-600" },
+          { label: "Overdue", value: overdueM, tone: "from-rose-500 to-pink-600" },
+          { label: "Completion", value: `${completionPct}%`, tone: "from-emerald-500 to-teal-600" },
+        ].map(s => (
+          <div key={s.label} className={`rounded-2xl p-4 bg-gradient-to-br ${s.tone} text-white shadow-md`}>
+            <div className="text-3xl font-black">{s.value}</div>
+            <div className="text-xs font-bold uppercase tracking-wider opacity-90">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Milestone Cards — horizontal scroll */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-black text-slate-800">Milestone Cards</h2>
+          <button onClick={onGoToBoard} className="text-xs font-bold text-violet-600 hover:text-violet-800">
+            See all →
+          </button>
+        </div>
+        {featured.length === 0 ? (
+          <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center text-slate-500 font-semibold">
+            All caught up — no active milestones.
+          </div>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
+            {featured.map(m => {
+              const { mCfg, days, schedule, scheduleTone, priority, pTone } = deriveCard(m);
+              const pillar = pillars.find(p => p.id === m.pillar_id);
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => onEditMilestone(m)}
+                  className="w-48 flex-shrink-0 rounded-2xl bg-gradient-to-b from-slate-600 to-slate-700 text-white p-4 shadow-lg hover:shadow-xl transition-all text-left"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onCycleMilestoneStatus && onCycleMilestoneStatus(m.id); }}
+                      className={`w-3 h-3 rounded-full bg-gradient-to-br ${mCfg.gradient}`}
+                      title="Click to cycle status"
+                    />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-white/90">{mCfg.label}</span>
+                  </div>
+                  <p className="font-black text-base leading-tight mb-3 line-clamp-2">{m.name}</p>
+                  <div className={`inline-block px-3 py-1 rounded-full ${pTone} text-xs font-black text-white mb-2`}>
+                    {priority} Priority
+                  </div>
+                  <div className={`text-[11px] font-bold mb-2 ${scheduleTone === "text-rose-700" ? "text-rose-200" : scheduleTone === "text-amber-700" ? "text-amber-200" : "text-emerald-200"}`}>
+                    {schedule}
+                  </div>
+                  <div className="text-[10px] font-semibold text-white/80 leading-relaxed">
+                    {pillar && <><span className="block truncate">{pillar.title}</span></>}
+                    {m.due_date && <>Due: {formatDate(m.due_date)}</>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Two-col: Activity + Deadlines */}
+      <section className="grid md:grid-cols-2 gap-4">
+        <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+          <h2 className="text-lg font-black text-slate-800 mb-3">Recent Activity</h2>
+          {recent.length === 0 ? (
+            <p className="text-sm text-slate-400">No recent activity.</p>
+          ) : (
+            <ul className="space-y-3">
+              {recent.map(m => {
+                const pillar = pillars.find(p => p.id === m.pillar_id);
+                const when = m.created_at ? timeAgo(m.created_at) : "";
+                return (
+                  <li key={m.id} className="flex items-start gap-3">
+                    <div className="w-9 h-9 flex-shrink-0 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white flex items-center justify-center text-xs font-black">
+                      {initials(currentProfile?.full_name || currentProfile?.email)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-700">
+                        <span className="font-black">{currentProfile?.full_name || "You"}</span>
+                        <span className="text-slate-500"> added </span>
+                        <span className="font-bold">"{m.name}"</span>
+                        {pillar && <><span className="text-slate-500"> in </span><span className="font-bold">{pillar.title}</span></>}
+                      </p>
+                      <p className="text-[11px] text-slate-400 font-semibold">{when}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-black text-slate-800">Upcoming Deadlines</h2>
+            <button onClick={onGoToTimeline} className="text-xs font-bold text-violet-600 hover:text-violet-800">
+              Timeline →
+            </button>
+          </div>
+          {upcoming.length === 0 ? (
+            <p className="text-sm text-slate-400">Nothing due in the next 14 days.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {upcoming.map(m => {
+                const pillar = pillars.find(p => p.id === m.pillar_id);
+                const days = Math.ceil((new Date(m.due_date) - startOfToday) / 86400000);
+                const mCfg = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
+                return (
+                  <li key={m.id} className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${mCfg.gradient}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">
+                        {m.name}
+                        {pillar && <span className="text-slate-400 font-semibold"> · {pillar.title}</span>}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-black flex-shrink-0 ${days <= 3 ? "text-rose-600" : days <= 7 ? "text-amber-600" : "text-emerald-600"}`}>
+                      {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days}d`}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      {/* Pillar Progress */}
+      <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+        <h2 className="text-lg font-black text-slate-800 mb-4">Pillar Progress</h2>
+        {pillarStats.length === 0 ? (
+          <p className="text-sm text-slate-400">No pillars yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {pillarStats.map((s, i) => {
+              const palette = COLUMN_PALETTE[i % COLUMN_PALETTE.length];
+              return (
+                <div key={s.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold text-slate-700 truncate">{s.title}</span>
+                    <span className="text-xs font-black text-slate-500 flex-shrink-0 ml-2">{s.progress}% · {s.count} milestones</span>
+                  </div>
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full bg-gradient-to-r ${palette.band}`} style={{ width: `${s.progress}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function timeAgo(dateStr) {
+  const d = new Date(dateStr);
+  const secs = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return d.toLocaleDateString();
+}
+
 // ─── Board View (Kanban by pillar, grouped by category) ──────────────────────
 const COLUMN_PALETTE = [
   { band: "from-sky-500 to-blue-600",       col: "border-sky-300 bg-sky-50/60",       head: "bg-sky-500",      text: "text-sky-50" },
@@ -1341,7 +1595,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState(() => {
-    try { return localStorage.getItem("viewMode") || "board"; } catch { return "board"; }
+    try { return localStorage.getItem("viewMode") || "hub"; } catch { return "hub"; }
   });
   useEffect(() => { try { localStorage.setItem("viewMode", viewMode); } catch {} }, [viewMode]);
   const [showPillarForm, setShowPillarForm] = useState(false);
@@ -1633,6 +1887,7 @@ export default function App() {
           <div className="flex gap-2 overflow-x-auto pb-1 items-center">
             <div className="inline-flex items-center bg-white rounded-full p-1 shadow-sm border border-slate-200 flex-shrink-0">
               {[
+                { id: "hub", label: "Hub" },
                 { id: "cards", label: "Cards" },
                 { id: "board", label: "Board" },
                 { id: "gantt", label: "Timeline" },
@@ -1663,6 +1918,18 @@ export default function App() {
             <Sparkles className="w-20 h-20 text-purple-300 mx-auto mb-4" />
             <p className="text-slate-600 font-bold text-lg">No pillars found</p>
           </motion.div>
+        ) : viewMode === "hub" ? (
+          <HubView
+            pillars={filteredPillars}
+            milestones={milestones}
+            subtasks={subtasks}
+            attachments={attachments}
+            currentProfile={currentProfile}
+            onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
+            onCycleMilestoneStatus={handleCycleMilestoneStatus}
+            onGoToBoard={() => setViewMode("board")}
+            onGoToTimeline={() => setViewMode("gantt")}
+          />
         ) : viewMode === "board" ? (
           <BoardView
             pillars={filteredPillars}
