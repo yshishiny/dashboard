@@ -1066,73 +1066,240 @@ function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData, profil
   members.filter(mm => mm.pillar_id === formData.pillar_id).forEach(mm => assigneeIds.add(mm.user_id));
   const assigneeProfiles = profiles.filter(p => assigneeIds.has(p.id));
 
-  const input = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800 focus:bg-white focus:ring-2 focus:ring-slate-200 text-sm font-medium transition-all placeholder:text-slate-400";
-  const label = "block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5";
-
   const STATUS_OPTS = [
-    { v: "not_started", label: "Upcoming", tone: "bg-slate-100 text-slate-700 border-slate-300" },
-    { v: "in_progress", label: "In Progress", tone: "bg-blue-100 text-blue-700 border-blue-300" },
-    { v: "blocked", label: "Blocked", tone: "bg-rose-100 text-rose-700 border-rose-300" },
-    { v: "done", label: "Done", tone: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    { v: "not_started", label: "Upcoming", dot: "bg-slate-300", track: "bg-slate-200", knob: "bg-white" },
+    { v: "in_progress", label: "In Progress", dot: "bg-blue-400", track: "bg-gradient-to-r from-violet-400 to-purple-500", knob: "bg-white" },
+    { v: "blocked", label: "Blocked", dot: "bg-rose-400", track: "bg-gradient-to-r from-rose-400 to-rose-500", knob: "bg-white" },
+    { v: "done", label: "Done", dot: "bg-emerald-400", track: "bg-gradient-to-r from-emerald-400 to-teal-500", knob: "bg-white" },
   ];
 
+  if (!isOpen) return null;
+
   return (
-    <ModernModal isOpen={isOpen} onClose={onClose} title={isEditing ? "Edit Milestone" : "New Milestone"} subtitle="A concrete step toward completing a pillar" accent="from-slate-800 to-slate-900">
-      <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); onClose(); }} className="space-y-4">
-        <div>
-          <label className={label}>Pillar</label>
-          <select value={formData.pillar_id} onChange={(e) => setFormData({ ...formData, pillar_id: e.target.value })} required className={input}>
-            {pillars.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-          </select>
-        </div>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ y: 60, opacity: 0, scale: 0.98 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: 60, opacity: 0, scale: 0.98 }}
+          transition={{ type: "spring", damping: 28, stiffness: 260 }}
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full md:max-w-lg bg-gradient-to-b from-purple-50 via-pink-50 to-orange-50 rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto"
+        >
+          {/* Decorative soft blobs */}
+          <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 w-52 h-52 bg-pink-300/40 rounded-full blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute top-40 -left-16 w-52 h-52 bg-purple-300/40 rounded-full blur-3xl" />
 
-        <div>
-          <label className={label}>Name</label>
-          <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Literature Review" required className={input} autoFocus />
-        </div>
-
-        <div>
-          <label className={label}>Status</label>
-          <div className="flex gap-2 flex-wrap">
-            {STATUS_OPTS.map(s => (
-              <button key={s.v} type="button" onClick={() => setFormData({ ...formData, status: s.v })}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.status === s.v ? s.tone : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"}`}>
-                {s.label}
-              </button>
-            ))}
+          {/* Title */}
+          <div className="relative px-6 pt-7 pb-3 flex items-start justify-between">
+            <div>
+              <h2 className="text-3xl font-black tracking-tight bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
+                {isEditing ? "Edit Milestone" : "New Milestone"}
+              </h2>
+              <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">A step toward a pillar</p>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-full bg-white/70 hover:bg-white shadow-md transition">
+              <X className="w-5 h-5 text-slate-600" />
+            </button>
           </div>
-        </div>
 
-        <div>
-          <label className={label}>Assigned To</label>
-          <select value={formData.assigned_to || ""} onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })} className={input}>
-            <option value="">Unassigned</option>
-            {assigneeProfiles.map(p => (
-              <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
-            ))}
-          </select>
-        </div>
+          <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); onClose(); }} className="relative px-4 pb-6 space-y-4">
 
-        <div>
-          <label className={label}>Due Date</label>
-          <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className={input} />
-        </div>
+            {/* Pillar card */}
+            <div className="relative bg-gradient-to-br from-purple-100 via-pink-50 to-pink-100 rounded-3xl border-2 border-purple-200/60 shadow-md overflow-hidden">
+              <div className="flex items-stretch">
+                <div className="flex-1 p-5">
+                  <div className="text-xl font-black text-slate-900">Pillar</div>
+                  <select
+                    value={formData.pillar_id}
+                    onChange={(e) => setFormData({ ...formData, pillar_id: e.target.value })}
+                    required
+                    className="mt-1.5 w-full bg-transparent border-0 text-sm font-bold text-purple-700 focus:outline-none cursor-pointer appearance-none"
+                    style={{ WebkitAppearance: "none" }}
+                  >
+                    {pillars.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                </div>
+                <div className="w-24 shrink-0 relative bg-gradient-to-br from-purple-600 to-pink-600 flex flex-col">
+                  <div className="flex-1 flex items-center justify-center">
+                    <ChevronDown className="w-7 h-7 text-white" strokeWidth={3} />
+                  </div>
+                  <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-pink-200 to-orange-200">
+                    <ChevronUp className="w-7 h-7 text-purple-700" strokeWidth={3} />
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        <div>
-          <label className={label}>Notes</label>
-          <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Anything worth remembering…" rows="2" className={input + " resize-none"} />
-        </div>
+            {/* Name card — curved pill on left */}
+            <div className="relative bg-gradient-to-br from-pink-100 via-purple-50 to-purple-100 rounded-3xl border-2 border-pink-200/60 shadow-md overflow-hidden">
+              <div className="flex items-center">
+                <div className="w-24 shrink-0 h-full self-stretch bg-gradient-to-br from-purple-500 via-pink-500 to-pink-400 rounded-r-full flex items-center justify-center py-8">
+                  <Sparkles className="w-7 h-7 text-white" />
+                </div>
+                <div className="flex-1 p-5">
+                  <div className="text-xl font-black text-slate-900">Name</div>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g. PSO ADSC tuning"
+                    required
+                    autoFocus
+                    className="mt-1.5 w-full bg-transparent border-0 text-sm font-bold text-purple-700 placeholder:text-purple-300 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
 
-        <div className="flex gap-2 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">
-            Cancel
-          </button>
-          <button type="submit" className="flex-[2] py-3 rounded-xl font-bold text-white bg-gradient-to-r from-slate-800 to-slate-900 hover:shadow-lg transition-all">
-            {isEditing ? "Save Changes" : "Create Milestone"}
-          </button>
-        </div>
-      </form>
-    </ModernModal>
+            {/* Status card — toggle switches */}
+            <div className="relative bg-gradient-to-br from-purple-100 via-pink-50 to-purple-100 rounded-3xl border-2 border-purple-200/60 shadow-md overflow-hidden">
+              <div className="flex items-start">
+                <div className="flex-1 p-5">
+                  <div className="text-xl font-black text-slate-900">Status</div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm font-bold text-slate-600">
+                    {STATUS_OPTS.map(s => (
+                      <button
+                        key={s.v}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, status: s.v })}
+                        className={`text-left flex items-center gap-1.5 ${formData.status === s.v ? "text-purple-700" : "text-slate-500"}`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${s.dot}`} />
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="w-24 shrink-0 py-4 pr-4 flex flex-col gap-2">
+                  {STATUS_OPTS.map(s => {
+                    const active = formData.status === s.v;
+                    return (
+                      <button
+                        key={s.v}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, status: s.v })}
+                        className={`relative h-6 w-14 rounded-full shadow-inner transition-all ${active ? s.track : "bg-slate-200"}`}
+                      >
+                        <motion.span
+                          animate={{ x: active ? 32 : 2 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          className={`absolute top-0.5 h-5 w-5 rounded-full shadow ${s.knob}`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Assigned To card */}
+            <div className="relative bg-gradient-to-br from-orange-100 via-pink-50 to-purple-100 rounded-3xl border-2 border-orange-200/60 shadow-md overflow-hidden">
+              <div className="flex items-center">
+                <div className="w-24 shrink-0 py-5 flex items-center justify-center">
+                  <div className="relative">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg">
+                      <User className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-400 border-2 border-white" />
+                  </div>
+                </div>
+                <div className="flex-1 p-5">
+                  <div className="text-xl font-black text-slate-900">Assigned To</div>
+                  <select
+                    value={formData.assigned_to || ""}
+                    onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                    className="mt-1.5 w-full bg-transparent border-0 text-sm font-bold text-purple-700 focus:outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="">Unassigned</option>
+                    {assigneeProfiles.map(p => (
+                      <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Due Date card — calendar illustration */}
+            <div className="relative bg-gradient-to-br from-pink-100 via-orange-50 to-pink-100 rounded-3xl border-2 border-pink-200/60 shadow-md overflow-hidden">
+              <div className="flex items-center">
+                <div className="w-24 shrink-0 py-5 flex items-center justify-center">
+                  <div className="relative w-16 h-14">
+                    <div className="absolute top-0 left-2 w-1.5 h-3 bg-orange-400 rounded-full" />
+                    <div className="absolute top-0 right-2 w-1.5 h-3 bg-orange-400 rounded-full" />
+                    <div className="absolute top-2 inset-x-0 h-12 bg-white rounded-lg border-2 border-purple-300 shadow-md overflow-hidden">
+                      <div className="h-3 bg-gradient-to-r from-purple-500 to-pink-500" />
+                      <div className="grid grid-cols-4 gap-0.5 p-1">
+                        {Array.from({ length: 8 }).map((_, i) => (
+                          <div key={i} className={`h-1.5 rounded-sm ${i === 3 ? "bg-pink-500" : i === 5 ? "bg-purple-400" : "bg-purple-200"}`} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 p-5">
+                  <div className="text-xl font-black text-slate-900">Due Date</div>
+                  <input
+                    type="date"
+                    value={formData.due_date}
+                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                    className="mt-1.5 w-full bg-transparent border-0 text-sm font-bold text-purple-700 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Notes card — lined paper illustration */}
+            <div className="relative bg-gradient-to-br from-purple-100 via-pink-50 to-pink-100 rounded-3xl border-2 border-purple-200/60 shadow-md overflow-hidden">
+              <div className="flex items-start">
+                <div className="flex-1 p-5">
+                  <div className="text-xl font-black text-slate-900">Notes</div>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Anything worth remembering…"
+                    rows="3"
+                    className="mt-1.5 w-full bg-transparent border-0 text-sm font-medium text-purple-700 placeholder:text-purple-300 focus:outline-none resize-none"
+                  />
+                </div>
+                <div className="w-24 shrink-0 py-5 flex items-center justify-center">
+                  <div className="w-16 h-14 bg-white rounded-lg border-2 border-purple-300 shadow-md p-1.5 space-y-1">
+                    <div className="h-0.5 bg-purple-300 rounded-full" />
+                    <div className="h-0.5 bg-purple-300 rounded-full" />
+                    <div className="h-0.5 bg-purple-300 rounded-full w-3/4" />
+                    <div className="h-0.5 bg-purple-300 rounded-full" />
+                    <div className="h-0.5 bg-purple-300 rounded-full w-1/2" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="sticky bottom-0 -mx-4 -mb-6 px-4 pt-4 pb-5 bg-gradient-to-t from-purple-50 via-purple-50/90 to-transparent">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-3.5 rounded-2xl font-black text-sm text-white bg-slate-900 hover:bg-slate-800 shadow-lg transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-[2] py-3.5 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-xl hover:scale-[1.01] transition-all"
+                >
+                  {isEditing ? "Save Changes" : "Create Milestone"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
