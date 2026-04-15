@@ -888,7 +888,7 @@ const CATEGORY_OPTIONS = [
   { v: "report", label: "Report" },
 ];
 
-function PillarForm({ isOpen, onClose, onSubmit, initialData }) {
+function PillarForm({ isOpen, onClose, onSubmit, initialData, members = [], profiles = [], currentUserId, onAddMember, onRemoveMember }) {
   const [formData, setFormData] = useState({ title: "", objective: "", target: "", category: "other", start_date: "", due_date: "", progress_override: "" });
 
   useEffect(() => {
@@ -951,6 +951,17 @@ function PillarForm({ isOpen, onClose, onSubmit, initialData }) {
           </div>
         </div>
 
+        {initialData && initialData.id && initialData.owner_id === currentUserId && (
+          <PillarMembersPanel
+            pillarId={initialData.id}
+            members={members.filter(m => m.pillar_id === initialData.id)}
+            profiles={profiles}
+            ownerId={initialData.owner_id}
+            onAdd={onAddMember}
+            onRemove={onRemoveMember}
+          />
+        )}
+
         <div className="flex gap-2 pt-2">
           <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">
             Cancel
@@ -964,9 +975,75 @@ function PillarForm({ isOpen, onClose, onSubmit, initialData }) {
   );
 }
 
-function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData }) {
+function PillarMembersPanel({ pillarId, members, profiles, ownerId, onAdd, onRemove }) {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setBusy(true);
+    const result = await onAdd(pillarId, email.trim());
+    setBusy(false);
+    if (result) setEmail("");
+  };
+  const ownerProfile = profiles.find(p => p.id === ownerId);
+  return (
+    <div className="border-t border-slate-200 pt-4 mt-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Team Members</span>
+        <span className="text-[10px] text-slate-400 font-bold">{members.length + 1} total</span>
+      </div>
+      <div className="space-y-2">
+        {ownerProfile && (
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-violet-50 border border-violet-100">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white flex items-center justify-center text-xs font-black flex-shrink-0">
+              {(ownerProfile.full_name || ownerProfile.email || "?").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-800 truncate">{ownerProfile.full_name || ownerProfile.email}</p>
+              <p className="text-[10px] font-semibold text-violet-600">Owner</p>
+            </div>
+          </div>
+        )}
+        {members.map(m => {
+          const prof = profiles.find(p => p.id === m.user_id);
+          const displayName = prof?.full_name || prof?.email || m.user_id.slice(0, 8);
+          return (
+            <div key={m.user_id} className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 text-white flex items-center justify-center text-xs font-black flex-shrink-0">
+                {(displayName || "?").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-800 truncate">{displayName}</p>
+                <p className="text-[10px] font-semibold text-slate-500 capitalize">{m.role}</p>
+              </div>
+              <button type="button" onClick={() => onRemove(pillarId, m.user_id)} className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-2 mt-3">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Add member by email…"
+          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-slate-800"
+        />
+        <button type="button" onClick={submit} disabled={busy || !email.trim()} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-bold disabled:opacity-50">
+          {busy ? "…" : "Add"}
+        </button>
+      </div>
+      <p className="text-[10px] text-slate-400 mt-2">Member must have signed in at least once.</p>
+    </div>
+  );
+}
+
+function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData, profiles = [], members = [] }) {
   const isEditing = initialData && !initialData.__isNew && initialData.id;
-  const [formData, setFormData] = useState({ pillar_id: "", name: "", status: "not_started", due_date: "", notes: "" });
+  const [formData, setFormData] = useState({ pillar_id: "", name: "", status: "not_started", due_date: "", notes: "", assigned_to: "" });
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -975,11 +1052,19 @@ function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData }) {
         status: initialData.status || "not_started",
         due_date: initialData.due_date || "",
         notes: initialData.notes || "",
+        assigned_to: initialData.assigned_to || "",
       });
     } else {
-      setFormData({ pillar_id: pillars[0]?.id || "", name: "", status: "not_started", due_date: "", notes: "" });
+      setFormData({ pillar_id: pillars[0]?.id || "", name: "", status: "not_started", due_date: "", notes: "", assigned_to: "" });
     }
   }, [initialData, pillars, isOpen]);
+
+  // Candidates for assignee: pillar owner + pillar members
+  const pillar = pillars.find(p => p.id === formData.pillar_id);
+  const assigneeIds = new Set();
+  if (pillar) assigneeIds.add(pillar.owner_id);
+  members.filter(mm => mm.pillar_id === formData.pillar_id).forEach(mm => assigneeIds.add(mm.user_id));
+  const assigneeProfiles = profiles.filter(p => assigneeIds.has(p.id));
 
   const input = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800 focus:bg-white focus:ring-2 focus:ring-slate-200 text-sm font-medium transition-all placeholder:text-slate-400";
   const label = "block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5";
@@ -1019,6 +1104,16 @@ function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData }) {
         </div>
 
         <div>
+          <label className={label}>Assigned To</label>
+          <select value={formData.assigned_to || ""} onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })} className={input}>
+            <option value="">Unassigned</option>
+            {assigneeProfiles.map(p => (
+              <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label className={label}>Due Date</label>
           <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className={input} />
         </div>
@@ -1042,7 +1137,7 @@ function MilestoneForm({ isOpen, onClose, onSubmit, pillars, initialData }) {
 }
 
 // ─── Hub View (Landing dashboard) ────────────────────────────────────────────
-function HubView({ pillars, milestones, subtasks, attachments, currentProfile, onEditMilestone, onCycleMilestoneStatus, onGoToBoard, onGoToTimeline }) {
+function HubView({ pillars, milestones, subtasks, attachments, profiles = [], members = [], currentProfile, onEditMilestone, onCycleMilestoneStatus, onGoToBoard, onGoToTimeline }) {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const in14 = new Date(startOfToday); in14.setDate(in14.getDate() + 14);
@@ -1254,6 +1349,9 @@ function HubView({ pillars, milestones, subtasks, attachments, currentProfile, o
         </div>
       </section>
 
+      {/* Resource Allocation — animated bars per teammate */}
+      <ResourceAllocation pillars={pillars} milestones={milestones} profiles={profiles} members={members} currentProfile={currentProfile} />
+
       {/* Pillar Progress */}
       <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
         <h2 className="text-lg font-black text-slate-800 mb-4">Pillar Progress</h2>
@@ -1295,6 +1393,101 @@ function timeAgo(dateStr) {
   return d.toLocaleDateString();
 }
 
+function ResourceAllocation({ pillars, milestones, profiles, members, currentProfile }) {
+  // Build set of participants: all pillar owners + all members + currentProfile
+  const participantIds = new Set();
+  pillars.forEach(p => p.owner_id && participantIds.add(p.owner_id));
+  members.forEach(m => participantIds.add(m.user_id));
+  milestones.forEach(m => m.assigned_to && participantIds.add(m.assigned_to));
+  if (currentProfile) participantIds.add(currentProfile.id);
+
+  const participants = [...participantIds]
+    .map(id => profiles.find(p => p.id === id) || { id, email: id.slice(0, 8), full_name: null })
+    .filter(Boolean);
+
+  // For each participant, count milestones by status (only those assigned to them OR owner of pillar if nobody else)
+  const stats = participants.map(p => {
+    const mine = milestones.filter(m => {
+      if (m.assigned_to) return m.assigned_to === p.id;
+      // unassigned — count toward pillar owner
+      const pillar = pillars.find(pl => pl.id === m.pillar_id);
+      return pillar && pillar.owner_id === p.id;
+    });
+    return {
+      user: p,
+      total: mine.length,
+      done: mine.filter(m => m.status === "done").length,
+      inProgress: mine.filter(m => m.status === "in_progress").length,
+      blocked: mine.filter(m => m.status === "blocked").length,
+      notStarted: mine.filter(m => m.status === "not_started").length,
+    };
+  });
+  const nonEmpty = stats.filter(s => s.total > 0);
+  const list = nonEmpty.length > 0 ? nonEmpty : stats;
+  const maxVal = Math.max(1, ...list.map(s => s.total));
+
+  if (list.length === 0) return null;
+
+  const initials = (p) => (p?.full_name || p?.email || "?").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
+
+  return (
+    <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+      <h2 className="text-lg font-black text-slate-800 mb-4">Resource Allocation</h2>
+      <div className="flex items-end gap-3 md:gap-5 overflow-x-auto pb-2" style={{ minHeight: 220 }}>
+        {list.map((s, idx) => {
+          const h = (v) => Math.max(4, Math.round((v / maxVal) * 160));
+          return (
+            <div key={s.user.id} className="flex flex-col items-center gap-2 flex-shrink-0" style={{ minWidth: 80 }}>
+              {/* Bars (grouped) */}
+              <div className="flex items-end gap-1 h-[170px]">
+                {[
+                  { val: s.done, color: "from-emerald-400 to-teal-500", label: "Done" },
+                  { val: s.inProgress, color: "from-blue-400 to-indigo-500", label: "In Progress" },
+                  { val: s.notStarted, color: "from-slate-300 to-slate-400", label: "Upcoming" },
+                  { val: s.blocked, color: "from-rose-400 to-pink-500", label: "Blocked" },
+                ].map((b, bi) => (
+                  <motion.div
+                    key={bi}
+                    initial={{ height: 0 }}
+                    animate={{ height: h(b.val) }}
+                    transition={{ duration: 0.7, delay: idx * 0.05 + bi * 0.05, ease: "easeOut" }}
+                    title={`${b.label}: ${b.val}`}
+                    className={`w-3.5 md:w-4 rounded-t-md bg-gradient-to-t ${b.color} shadow-sm`}
+                  />
+                ))}
+              </div>
+
+              {/* Avatar */}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white flex items-center justify-center text-[10px] font-black ring-2 ring-white shadow">
+                {initials(s.user)}
+              </div>
+              <div className="text-[10px] font-bold text-slate-600 text-center max-w-[80px] truncate">
+                {s.user.full_name ? s.user.full_name.split(" ")[0] : (s.user.email || "").split("@")[0]}
+              </div>
+              <div className="text-[10px] font-black text-slate-400">{s.total}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 mt-3 text-[10px] font-bold text-slate-500">
+        {[
+          { color: "from-emerald-400 to-teal-500", label: "Done" },
+          { color: "from-blue-400 to-indigo-500", label: "In Progress" },
+          { color: "from-slate-300 to-slate-400", label: "Upcoming" },
+          { color: "from-rose-400 to-pink-500", label: "Blocked" },
+        ].map(l => (
+          <span key={l.label} className="inline-flex items-center gap-1.5">
+            <span className={`w-3 h-3 rounded bg-gradient-to-t ${l.color}`} />
+            {l.label}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ─── Board View (Kanban by pillar, grouped by category) ──────────────────────
 const COLUMN_PALETTE = [
   { band: "from-sky-500 to-blue-600",       col: "border-sky-300 bg-sky-50/60",       head: "bg-sky-500",      text: "text-sky-50" },
@@ -1309,7 +1502,7 @@ const categoryLabel = (c) => {
   return c.replace(/_/g, " ").replace(/\b\w/g, s => s.toUpperCase());
 };
 
-function BoardView({ pillars, milestones, subtasks, attachments, userId, isAdmin, onEditPillar, onEditMilestone, onCycleMilestoneStatus, onAddMilestone }) {
+function BoardView({ pillars, milestones, subtasks, attachments, profiles = [], userId, isAdmin, onEditPillar, onEditMilestone, onCycleMilestoneStatus, onAddMilestone }) {
   // Group pillars by category
   const groups = pillars.reduce((acc, p) => {
     const key = p.category || "other";
@@ -1401,6 +1594,16 @@ function BoardView({ pillars, milestones, subtasks, attachments, userId, isAdmin
                                     <Paperclip className="w-2.5 h-2.5" /> {mAtts.length}
                                   </span>
                                 )}
+                                {m.assigned_to && (() => {
+                                  const prof = profiles.find(pp => pp.id === m.assigned_to);
+                                  const label = prof?.full_name || prof?.email || "?";
+                                  const init = label.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
+                                  return (
+                                    <span title={`Assigned: ${label}`} className="ml-auto w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-[8px] font-black flex items-center justify-center ring-2 ring-white">
+                                      {init}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                           );
@@ -1590,6 +1793,7 @@ export default function App() {
   const [milestones, setMilestones] = useState([]);
   const [subtasks, setSubtasks] = useState([]);
   const [attachments, setAttachments] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedPillar, setExpandedPillar] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1626,16 +1830,18 @@ export default function App() {
     if (demoMode || !user || !supabase) return;
     (async () => {
       setLoading(true);
-      const [profilesRes, pillarsRes, milestonesRes, subtasksRes, attachmentsRes] = await Promise.all([
+      const [profilesRes, pillarsRes, milestonesRes, subtasksRes, attachmentsRes, membersRes] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("pillars").select("*"),
         supabase.from("milestones").select("*"),
         supabase.from("subtasks").select("*").order("sort_order", { ascending: true }),
-        supabase.from("milestone_attachments").select("*").order("created_at", { ascending: false })
+        supabase.from("milestone_attachments").select("*").order("created_at", { ascending: false }),
+        supabase.from("pillar_members").select("*")
       ]);
       setProfiles(profilesRes.data || []); setPillars(pillarsRes.data || []); setMilestones(milestonesRes.data || []);
       setSubtasks(subtasksRes.error ? [] : (subtasksRes.data || []));
       setAttachments(attachmentsRes.error ? [] : (attachmentsRes.data || []));
+      setMembers(membersRes.error ? [] : (membersRes.data || []));
       setLoading(false);
     })();
   }, [user, demoMode]);
@@ -1665,6 +1871,7 @@ export default function App() {
     status: data.status || "not_started",
     due_date: data.due_date ? data.due_date : null,
     notes: data.notes || null,
+    assigned_to: data.assigned_to || null,
   });
 
   const handleCreateMilestone = async (data) => {
@@ -1782,6 +1989,31 @@ export default function App() {
     const { data, error } = await supabase.storage.from("attachments").createSignedUrl(att.storage_path, 60 * 10);
     if (error) { alert(`Could not open: ${error.message}`); return; }
     window.open(data.signedUrl, "_blank");
+  };
+
+  // ─── Team / member handlers ────────────────────────────────────────────────
+  const handleAddMemberByEmail = async (pillarId, email, role = "member") => {
+    if (!pillarId || !email) return;
+    if (demoMode) { alert("Team editing requires Supabase login."); return; }
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("add_pillar_member_by_email", { p_pillar_id: pillarId, p_email: email, p_role: role });
+    if (error) { alert(`Could not add member: ${error.message}`); return; }
+    // Refresh members + profiles
+    const [membersRes, profilesRes] = await Promise.all([
+      supabase.from("pillar_members").select("*"),
+      supabase.from("profiles").select("*"),
+    ]);
+    setMembers(membersRes.data || []);
+    setProfiles(profilesRes.data || []);
+    return data;
+  };
+
+  const handleRemoveMember = async (pillarId, userId) => {
+    if (!confirm("Remove this member?")) return;
+    if (!supabase) return;
+    const { error } = await supabase.from("pillar_members").delete().eq("pillar_id", pillarId).eq("user_id", userId);
+    if (error) { alert(`Could not remove: ${error.message}`); return; }
+    setMembers(members.filter(m => !(m.pillar_id === pillarId && m.user_id === userId)));
   };
 
   const handleDeleteAttachment = async (att) => {
@@ -1924,6 +2156,8 @@ export default function App() {
             milestones={milestones}
             subtasks={subtasks}
             attachments={attachments}
+            profiles={profiles}
+            members={members}
             currentProfile={currentProfile}
             onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
             onCycleMilestoneStatus={handleCycleMilestoneStatus}
@@ -1936,6 +2170,7 @@ export default function App() {
             milestones={milestones}
             subtasks={subtasks}
             attachments={attachments}
+            profiles={profiles}
             userId={user?.id}
             isAdmin={isAdmin}
             onEditPillar={(p) => { setEditingPillar(p); setShowPillarForm(true); }}
@@ -1963,8 +2198,8 @@ export default function App() {
         <Plus className="w-8 h-8" />
       </motion.button>
 
-      <PillarForm isOpen={showPillarForm} onClose={() => { setShowPillarForm(false); setEditingPillar(null); }} onSubmit={editingPillar ? handleUpdatePillar : handleCreatePillar} initialData={editingPillar} />
-      <MilestoneForm isOpen={showMilestoneForm} onClose={() => { setShowMilestoneForm(false); setEditingMilestone(null); }} onSubmit={editingMilestone && editingMilestone.id && !editingMilestone.__isNew ? handleUpdateMilestone : handleCreateMilestone} pillars={pillars} initialData={editingMilestone} />
+      <PillarForm isOpen={showPillarForm} onClose={() => { setShowPillarForm(false); setEditingPillar(null); }} onSubmit={editingPillar ? handleUpdatePillar : handleCreatePillar} initialData={editingPillar} members={members} profiles={profiles} currentUserId={user?.id} onAddMember={handleAddMemberByEmail} onRemoveMember={handleRemoveMember} />
+      <MilestoneForm isOpen={showMilestoneForm} onClose={() => { setShowMilestoneForm(false); setEditingMilestone(null); }} onSubmit={editingMilestone && editingMilestone.id && !editingMilestone.__isNew ? handleUpdateMilestone : handleCreateMilestone} pillars={pillars} initialData={editingMilestone} profiles={profiles} members={members} />
 
       <AnimatePresence>
         {showMenu && (
