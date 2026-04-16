@@ -2753,79 +2753,76 @@ function AdminProjectAccess({ pillars, profiles, members, onRefresh }) {
 }
 
 // ─── EisenhowerView ───────────────────────────────────────────────────────────
-function EisenhowerView({ milestones, pillars, profiles, onEditMilestone, onCycleMilestoneStatus }) {
-  const quadrantOrder = ["q1", "q2", "q3", "q4"];
-  const byQuadrant = quadrantOrder.reduce((acc, k) => { acc[k] = []; return acc; }, {});
-  milestones.forEach(m => { const q = getEisenhower(m); byQuadrant[q.key].push(m); });
+const EQ_STYLES = [
+  { key: "q1", label: "🔴 Do First",  desc: "Urgent + Important",        hdr: "#ef4444", border: "#fca5a5" },
+  { key: "q2", label: "🔵 Schedule",  desc: "Important, Not Urgent",     hdr: "#3b82f6", border: "#93c5fd" },
+  { key: "q3", label: "🟡 Delegate",  desc: "Urgent, Not Important",     hdr: "#f59e0b", border: "#fcd34d" },
+  { key: "q4", label: "⚪ Eliminate", desc: "Not Urgent, Not Important", hdr: "#94a3b8", border: "#cbd5e1" },
+];
+
+function EisenhowerView({ milestones, pillars, profiles, onEditMilestone }) {
+  const byQ = { q1: [], q2: [], q3: [], q4: [] };
+  (milestones || []).forEach(m => {
+    const key = (m.urgent && m.important) ? "q1"
+              : (!m.urgent && m.important) ? "q2"
+              : (m.urgent && !m.important) ? "q3"
+              : "q4";
+    byQ[key].push(m);
+  });
 
   return (
-    <div className="px-4 py-6 pb-24">
-      <div className="mb-6 text-center">
-        <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full shadow-lg">
-          <Grid3x3 className="w-5 h-5 text-white" />
-          <span className="text-white font-black text-sm tracking-wide">Eisenhower Priority Matrix</span>
-        </div>
-        <p className="text-slate-500 text-xs mt-2 font-medium">Organise by urgency × importance</p>
+    <div style={{ padding: "24px 16px 96px" }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#6d28d9,#7c3aed)", color: "#fff", padding: "8px 20px", borderRadius: 99, fontWeight: 900, fontSize: 14 }}>
+          Eisenhower Priority Matrix
+        </span>
+        <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 6 }}>All {(milestones||[]).length} milestones — organised by urgency × importance</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {quadrantOrder.map(key => {
-          const q = EISENHOWER_QUADRANTS[key];
-          const items = byQuadrant[key];
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+        {EQ_STYLES.map(({ key, label, desc, hdr, border }) => {
+          const items = byQ[key] || [];
           return (
-            <div key={key} className={`rounded-3xl border-2 ${q.border} bg-white shadow-md overflow-hidden`}>
-              {/* Header */}
-              <div className={`bg-gradient-to-r ${q.header} px-5 py-3 flex items-center justify-between`}>
+            <div key={key} style={{ borderRadius: 20, border: `2px solid ${border}`, background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+              <div style={{ background: hdr, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div className="text-white font-black text-base">{q.icon} {q.label}</div>
-                  <div className="text-white/80 text-xs font-medium">{q.desc}</div>
+                  <div style={{ color: "#fff", fontWeight: 900, fontSize: 15 }}>{label}</div>
+                  <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 11 }}>{desc}</div>
                 </div>
-                <div className="bg-white/20 rounded-full px-3 py-1 text-white font-black text-sm">{items.length}</div>
+                <span style={{ background: "rgba(255,255,255,0.25)", color: "#fff", borderRadius: 99, padding: "2px 10px", fontWeight: 900, fontSize: 13 }}>{items.length}</span>
               </div>
-
-              {/* Milestones */}
-              <div className="divide-y divide-slate-100">
-                {items.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 text-sm font-medium">No milestones here</div>
-                ) : items.map(m => {
-                  const pillar = pillars.find(p => p.id === m.pillar_id);
-                  const assignee = profiles.find(p => p.id === m.assigned_to);
-                  const st = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
-                  return (
-                    <div key={m.id} className="px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer group"
-                      onClick={() => onEditMilestone(m)}>
-                      <div className="flex items-start gap-3">
-                        <button onClick={e => { e.stopPropagation(); onCycleMilestoneStatus(m); }}
-                          className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${st.badge}`}>
-                          {st.icon}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-slate-800 truncate">{m.name}</div>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <div>
+                {items.length === 0
+                  ? <div style={{ padding: "24px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No milestones here</div>
+                  : items.map(m => {
+                      const pillar = (pillars || []).find(p => p.id === m.pillar_id);
+                      const isOverdue = m.due_date && m.status !== "done" && m.due_date < new Date().toISOString().split("T")[0];
+                      return (
+                        <div key={m.id}
+                          onClick={() => onEditMilestone && onEditMilestone(m)}
+                          style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{m.name || "Untitled"}</div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
                             {pillar && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: (pillar.color||"#8b5cf6")+"22", color: pillar.color||"#8b5cf6" }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: (pillar.color || "#8b5cf6") + "22", color: pillar.color || "#8b5cf6" }}>
                                 {pillar.icon} {pillar.name}
                               </span>
                             )}
                             {m.due_date && (
-                              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${new Date(m.due_date) < new Date() && m.status !== "done" ? "text-rose-500" : "text-slate-400"}`}>
-                                <Calendar className="w-3 h-3" />{m.due_date}
+                              <span style={{ fontSize: 10, fontWeight: 600, color: isOverdue ? "#ef4444" : "#94a3b8" }}>
+                                📅 {m.due_date}
                               </span>
                             )}
-                            {assignee && (
-                              <span className="text-[10px] text-slate-400 font-medium">{assignee.full_name}</span>
-                            )}
-                            {m.recurrence_rule && (
-                              <span className="text-[10px] font-bold text-teal-600 flex items-center gap-0.5">
-                                <Repeat className="w-3 h-3" />{m.recurrence_rule}
-                              </span>
+                            {m.status && (
+                              <span style={{ fontSize: 10, color: "#94a3b8" }}>{m.status.replace("_", " ")}</span>
                             )}
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })
+                }
               </div>
             </div>
           );
