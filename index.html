@@ -1,12 +1,1487 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Project Pillars Dashboard</title>
-  </head>
-  <body class="bg-slate-100">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mariam Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.js"></script>
+<style>
+/* ===== BASE RESET & TYPOGRAPHY ===== */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { font-family:'Inter',system-ui,-apple-system,sans-serif; scroll-behavior:smooth; }
+body { min-height:100vh; transition: background 0.4s, color 0.4s; }
+
+/* ===== CSS VARIABLE THEMES ===== */
+:root, [data-theme="aurora"] {
+  --bg-primary: #0c0a1a;
+  --bg-secondary: #151028;
+  --bg-card: #1c1536;
+  --bg-card-hover: #241d44;
+  --bg-input: #120e24;
+  --text-primary: #f0eef8;
+  --text-secondary: #9b94b8;
+  --text-muted: #6b6388;
+  --accent-1: #a855f7;
+  --accent-2: #ec4899;
+  --accent-3: #6366f1;
+  --gradient-main: linear-gradient(135deg, #a855f7, #ec4899);
+  --gradient-card: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(236,72,153,0.05));
+  --border-color: rgba(168,85,247,0.15);
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-hover: 0 8px 32px rgba(168,85,247,0.15);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --prayer-color: #22c55e;
+  --quran-color: #14b8a6;
+  --sports-color: #f97316;
+  --sleep-color: #3b82f6;
+  --vacation-color: #f43f5e;
+  --project-color: #a855f7;
+  --sidebar-bg: #0a0818;
+  --sidebar-active: rgba(168,85,247,0.15);
+}
+
+[data-theme="ocean"] {
+  --bg-primary: #0a1628;
+  --bg-secondary: #0f1e36;
+  --bg-card: #142640;
+  --bg-card-hover: #1a3050;
+  --bg-input: #0d1a2e;
+  --text-primary: #e8f0fb;
+  --text-secondary: #8bacc8;
+  --text-muted: #5a7d9e;
+  --accent-1: #06b6d4;
+  --accent-2: #0ea5e9;
+  --accent-3: #2563eb;
+  --gradient-main: linear-gradient(135deg, #06b6d4, #2563eb);
+  --gradient-card: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(37,99,235,0.05));
+  --border-color: rgba(6,182,212,0.15);
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-hover: 0 8px 32px rgba(6,182,212,0.15);
+  --sidebar-bg: #070f1e;
+  --sidebar-active: rgba(6,182,212,0.15);
+}
+
+[data-theme="sunset"] {
+  --bg-primary: #1a0e0a;
+  --bg-secondary: #261510;
+  --bg-card: #331c14;
+  --bg-card-hover: #40241a;
+  --bg-input: #1f1210;
+  --text-primary: #fbe8e0;
+  --text-secondary: #c89a88;
+  --text-muted: #8a6455;
+  --accent-1: #f97316;
+  --accent-2: #ef4444;
+  --accent-3: #eab308;
+  --gradient-main: linear-gradient(135deg, #f97316, #ef4444);
+  --gradient-card: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(239,68,68,0.05));
+  --border-color: rgba(249,115,22,0.15);
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-hover: 0 8px 32px rgba(249,115,22,0.15);
+  --sidebar-bg: #140b08;
+  --sidebar-active: rgba(249,115,22,0.15);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f5f3ff;
+  --bg-secondary: #ede9fe;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f9f7ff;
+  --bg-input: #f0ecff;
+  --text-primary: #1e1b3a;
+  --text-secondary: #5b5580;
+  --text-muted: #8b84a8;
+  --accent-1: #7c3aed;
+  --accent-2: #db2777;
+  --accent-3: #4f46e5;
+  --gradient-main: linear-gradient(135deg, #7c3aed, #db2777);
+  --gradient-card: linear-gradient(135deg, rgba(124,58,237,0.04), rgba(219,39,119,0.03));
+  --border-color: rgba(124,58,237,0.12);
+  --shadow-card: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-hover: 0 6px 24px rgba(124,58,237,0.1);
+  --sidebar-bg: #ede9fe;
+  --sidebar-active: rgba(124,58,237,0.1);
+}
+
+[data-theme="forest"] {
+  --bg-primary: #0a1a10;
+  --bg-secondary: #0f261a;
+  --bg-card: #143322;
+  --bg-card-hover: #1a4030;
+  --bg-input: #0d1f15;
+  --text-primary: #e0f5e8;
+  --text-secondary: #88c8a0;
+  --text-muted: #5a9e75;
+  --accent-1: #22c55e;
+  --accent-2: #10b981;
+  --accent-3: #059669;
+  --gradient-main: linear-gradient(135deg, #22c55e, #059669);
+  --gradient-card: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(5,150,105,0.05));
+  --border-color: rgba(34,197,94,0.15);
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-hover: 0 8px 32px rgba(34,197,94,0.15);
+  --sidebar-bg: #071410;
+  --sidebar-active: rgba(34,197,94,0.15);
+}
+
+/* ===== LAYOUT MODES ===== */
+[data-layout="default"] { --sidebar-width: 260px; --content-gap: 24px; --card-padding: 24px; }
+[data-layout="compact"] { --sidebar-width: 72px; --content-gap: 16px; --card-padding: 16px; }
+[data-layout="spacious"] { --sidebar-width: 280px; --content-gap: 32px; --card-padding: 32px; }
+
+/* ===== APP SHELL ===== */
+.app-shell { display:flex; min-height:100vh; background:var(--bg-primary); color:var(--text-primary); }
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 100;
+  transition: width 0.3s;
+  overflow: hidden;
+}
+.sidebar-logo {
+  padding: 24px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+.sidebar-logo .logo-icon {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: var(--gradient-main);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 800; color: white;
+  flex-shrink: 0;
+}
+.sidebar-logo .logo-text {
+  font-size: 18px; font-weight: 700;
+  background: var(--gradient-main);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+}
+[data-layout="compact"] .logo-text,
+[data-layout="compact"] .nav-label,
+[data-layout="compact"] .sidebar-footer-text { display: none; }
+[data-layout="compact"] .sidebar-logo { justify-content: center; padding: 24px 10px; }
+[data-layout="compact"] .nav-item { justify-content: center; padding: 14px 0; }
+
+.sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; overflow-y:auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: var(--radius-sm);
+  color: var(--text-secondary); cursor: pointer;
+  transition: all 0.2s; font-size: 14px; font-weight: 500;
+  text-decoration: none; white-space: nowrap;
+}
+.nav-item:hover { background: var(--sidebar-active); color: var(--text-primary); }
+.nav-item.active { background: var(--sidebar-active); color: var(--accent-1); font-weight: 600; }
+.nav-item svg { width:20px; height:20px; flex-shrink:0; }
+
+.sidebar-footer {
+  padding: 16px 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Main content */
+.main-content {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  padding: var(--content-gap);
+  transition: margin 0.3s;
+  min-height: 100vh;
+}
+
+/* ===== HEADER ===== */
+.page-header {
+  background: var(--gradient-main);
+  border-radius: var(--radius);
+  padding: 32px var(--card-padding);
+  margin-bottom: var(--content-gap);
+  position: relative;
+  overflow: hidden;
+}
+.page-header::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 50%);
+}
+.page-header h1 { font-size: 28px; font-weight: 800; color: white; position: relative; z-index:1; }
+.page-header p { color: rgba(255,255,255,0.8); font-size: 14px; margin-top: 4px; position: relative; z-index:1; }
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: var(--card-padding);
+  transition: all 0.3s;
+  box-shadow: var(--shadow-card);
+}
+.card:hover { box-shadow: var(--shadow-hover); background: var(--bg-card-hover); }
+.card-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+
+/* Grid layouts */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--content-gap); }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--content-gap); }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--content-gap); }
+.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--content-gap); }
+
+/* ===== STAT CARDS ===== */
+.stat-card {
+  background: var(--gradient-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 20px var(--card-padding);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.stat-icon {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+}
+.stat-value { font-size: 28px; font-weight: 800; line-height: 1; }
+.stat-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+/* ===== PROGRESS BARS ===== */
+.progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--gradient-main);
+  transition: width 0.6s ease;
+}
+
+/* ===== CIRCULAR PROGRESS ===== */
+.circular-progress {
+  width: 80px; height: 80px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.circular-progress svg { transform: rotate(-90deg); }
+.circular-progress .track { stroke: var(--bg-input); fill: none; }
+.circular-progress .fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 0.6s; }
+.circular-progress .value {
+  position: absolute;
+  font-size: 16px; font-weight: 700;
+}
+
+/* ===== BADGES & TAGS ===== */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 12px; font-weight: 600;
+  white-space: nowrap;
+}
+.badge-prayer { background: rgba(34,197,94,0.15); color: #22c55e; }
+.badge-quran { background: rgba(20,184,166,0.15); color: #14b8a6; }
+.badge-sports { background: rgba(249,115,22,0.15); color: #f97316; }
+.badge-sleep { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.badge-vacation { background: rgba(244,63,94,0.15); color: #f43f5e; }
+.badge-project { background: rgba(168,85,247,0.15); color: #a855f7; }
+.badge-done { background: rgba(34,197,94,0.15); color: #22c55e; }
+.badge-progress { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.badge-blocked { background: rgba(239,68,68,0.15); color: #ef4444; }
+.badge-not-started { background: rgba(156,163,175,0.15); color: #9ca3af; }
+
+/* ===== ACTIVITY TILES ===== */
+.activity-tile {
+  border-radius: var(--radius);
+  padding: var(--card-padding);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+.activity-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+
+/* ===== TIMELINE ===== */
+.timeline-item {
+  display: flex; gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.timeline-item:last-child { border-bottom: none; }
+.timeline-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.timeline-time { font-size: 12px; color: var(--text-muted); margin-top:2px; }
+
+/* ===== CALENDAR ===== */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.cal-header {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+.cal-day {
+  aspect-ratio: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  gap: 4px;
+}
+.cal-day:hover { background: var(--bg-card-hover); }
+.cal-day.today { background: var(--accent-1); color: white; font-weight: 700; }
+.cal-day.has-event::after {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  position: absolute; bottom: 6px;
+}
+.cal-day.empty { pointer-events: none; }
+
+/* ===== THEME SELECTOR ===== */
+.theme-panel {
+  position: fixed;
+  top: 0; right: -360px;
+  width: 360px; height: 100vh;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+  z-index: 200;
+  transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+  overflow-y: auto;
+  padding: 24px;
+}
+.theme-panel.open { right: 0; }
+.theme-panel-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 199;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+.theme-panel-overlay.open { opacity: 1; pointer-events: auto; }
+
+.theme-swatch {
+  width: 100%; padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 12px;
+  transition: all 0.2s;
+  margin-bottom: 8px;
+}
+.theme-swatch.active { border-color: var(--accent-1); }
+.theme-swatch:hover { transform: scale(1.01); }
+.swatch-colors {
+  display: flex; gap: 4px;
+}
+.swatch-dot {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+}
+
+/* ===== GANTT CHART ===== */
+.gantt-row {
+  display: flex; align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.gantt-label { width: 160px; font-size: 13px; color: var(--text-secondary); flex-shrink: 0; }
+.gantt-track {
+  flex: 1; height: 24px;
+  background: var(--bg-input);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.gantt-fill {
+  position: absolute; top: 0; height: 100%;
+  border-radius: 6px;
+  opacity: 0.85;
+}
+
+/* ===== MOBILE ===== */
+.mobile-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--sidebar-bg);
+  border-top: 1px solid var(--border-color);
+  z-index: 100;
+  padding: 8px 0 env(safe-area-inset-bottom, 8px);
+}
+.mobile-nav-items {
+  display: flex; justify-content: space-around; align-items: center;
+}
+.mobile-nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 12px; border-radius: 12px;
+  color: var(--text-muted); font-size: 10px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s;
+}
+.mobile-nav-item.active { color: var(--accent-1); }
+.mobile-nav-item svg { width: 22px; height: 22px; }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main-content { margin-left: 0; padding-bottom: 80px; }
+  .mobile-nav { display: block; }
+  .grid-4, .grid-5 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .grid-4, .grid-5 { grid-template-columns: 1fr; }
+  .page-header h1 { font-size: 22px; }
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 99px; }
+
+/* ===== TABLE ===== */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  text-align: left; padding: 12px 16px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+}
+.data-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+.data-table tr:hover td { background: var(--bg-card-hover); }
+
+/* ===== MISC ===== */
+.btn-accent {
+  background: var(--gradient-main);
+  color: white; border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 600; font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.btn-accent:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.section-gap { margin-bottom: var(--content-gap); }
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+.gap-lg { gap: 24px; }
+.text-sm { font-size: 13px; }
+.text-xs { font-size: 11px; }
+.text-muted { color: var(--text-secondary); }
+.font-bold { font-weight: 700; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Tab bar */
+.tab-bar { display: flex; gap: 4px; background: var(--bg-input); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px; }
+.tab-item {
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+}
+.tab-item.active { background: var(--bg-card); color: var(--accent-1); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+</style>
+</head>
+<body data-theme="aurora" data-layout="default">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, createContext, useContext, useCallback } = React;
+
+// ===== ICONS (inline SVG components) =====
+const Icons = {
+  Home: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  Layers: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
+  Calendar: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  Activity: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+  BarChart: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>,
+  Settings: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2m-9-11h2m18 0h2m-3.3-6.7l-1.4 1.4M6.7 17.3l-1.4 1.4m0-13.4l1.4 1.4m10.6 10.6l1.4 1.4"/></svg>,
+  Palette: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="0.5" fill="currentColor"/><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor"/><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor"/><circle cx="6.5" cy="12" r="0.5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7H16c3.3 0 6-2.7 6-6 0-5.5-4.5-9.6-10-9.6z"/></svg>,
+  Check: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  Moon: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
+  Sun: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
+  X: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  ChevronRight: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  Clock: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  Book: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>,
+  Heart: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21.3l7.8-7.8 1-1.1a5.5 5.5 0 000-7.8z"/></svg>,
+  Zap: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+  Target: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+  TrendUp: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+  Users: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
+  Star: () => <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+};
+
+// ===== THEME CONTEXT =====
+const ThemeContext = createContext();
+
+const THEMES = [
+  { id:'aurora', name:'Aurora', desc:'Purple & pink gradients', colors:['#a855f7','#ec4899','#6366f1'] },
+  { id:'ocean', name:'Ocean', desc:'Deep blue & cyan', colors:['#06b6d4','#0ea5e9','#2563eb'] },
+  { id:'sunset', name:'Sunset', desc:'Warm orange & red', colors:['#f97316','#ef4444','#eab308'] },
+  { id:'light', name:'Daylight', desc:'Clean light theme', colors:['#7c3aed','#db2777','#f5f3ff'] },
+  { id:'forest', name:'Forest', desc:'Natural greens', colors:['#22c55e','#10b981','#059669'] },
+];
+
+const LAYOUTS = [
+  { id:'default', name:'Default', desc:'Balanced sidebar & spacing' },
+  { id:'compact', name:'Compact', desc:'Icon-only sidebar, tighter gaps' },
+  { id:'spacious', name:'Spacious', desc:'Wide sidebar, generous padding' },
+];
+
+// ===== SAMPLE DATA =====
+const PILLARS = [
+  { id:1, title:'IoT Hotel System', category:'project', status:'in_progress', progress:65, priority:'high', milestones:8, done:5, dueDate:'2026-06-15', description:'Smart hotel automation with IoT sensors' },
+  { id:2, title:'Research Paper #1', category:'paper', status:'in_progress', progress:40, priority:'high', milestones:6, done:2, dueDate:'2026-05-20', description:'ML-based anomaly detection in IoT' },
+  { id:3, title:'Research Paper #2', category:'paper', status:'not_started', progress:10, priority:'medium', milestones:5, done:0, dueDate:'2026-07-01', description:'Edge computing optimization study' },
+  { id:4, title:'Master Thesis', category:'thesis', status:'in_progress', progress:30, priority:'high', milestones:12, done:4, dueDate:'2026-09-30', description:'Comprehensive IoT framework thesis' },
+  { id:5, title:'White Paper', category:'paper', status:'blocked', progress:20, priority:'medium', milestones:4, done:1, dueDate:'2026-08-15', description:'Industry white paper on smart buildings' },
+];
+
+const MILESTONES_DATA = [
+  { id:1, pillarId:1, name:'Hardware prototype', status:'done', dueDate:'2026-03-15' },
+  { id:2, pillarId:1, name:'Sensor integration', status:'done', dueDate:'2026-03-30' },
+  { id:3, pillarId:1, name:'Cloud backend', status:'in_progress', dueDate:'2026-04-20' },
+  { id:4, pillarId:1, name:'Mobile app MVP', status:'not_started', dueDate:'2026-05-10' },
+  { id:5, pillarId:2, name:'Literature review', status:'done', dueDate:'2026-03-01' },
+  { id:6, pillarId:2, name:'Data collection', status:'in_progress', dueDate:'2026-04-25' },
+  { id:7, pillarId:2, name:'Model training', status:'not_started', dueDate:'2026-05-10' },
+  { id:8, pillarId:4, name:'Chapter 1 draft', status:'done', dueDate:'2026-02-28' },
+  { id:9, pillarId:4, name:'Chapter 2 draft', status:'done', dueDate:'2026-03-20' },
+  { id:10, pillarId:4, name:'Chapter 3 draft', status:'in_progress', dueDate:'2026-04-30' },
+];
+
+const PRAYER_TIMES = [
+  { name:'Fajr', time:'05:12', done:true },
+  { name:'Dhuhr', time:'12:30', done:true },
+  { name:'Asr', time:'15:45', done:true },
+  { name:'Maghrib', time:'18:22', done:false },
+  { name:'Isha', time:'19:45', done:false },
+];
+
+const ACTIVITIES = {
+  prayers: { done:3, total:5, streak:14 },
+  quran: { pages:3, target:5, streak:21 },
+  sports: { steps:6420, target:10000, minutes:35 },
+  sleep: { hours:7.2, target:8, quality:82 },
+  vacation: { used:5, total:21 },
+};
+
+const WEEKLY_DATA = [
+  { day:'Mon', prayers:5, quran:4, sports:45, sleep:7.5 },
+  { day:'Tue', prayers:5, quran:3, sports:30, sleep:6.8 },
+  { day:'Wed', prayers:4, quran:5, sports:60, sleep:7.2 },
+  { day:'Thu', prayers:5, quran:4, sports:0, sleep:8.0 },
+  { day:'Fri', prayers:5, quran:6, sports:45, sleep:7.8 },
+  { day:'Sat', prayers:5, quran:3, sports:90, sleep:8.5 },
+  { day:'Sun', prayers:4, quran:2, sports:20, sleep:7.0 },
+];
+
+// ===== CIRCULAR PROGRESS COMPONENT =====
+function CircularProgress({ value, max, size=80, strokeWidth=6, color='var(--accent-1)' }) {
+  const r = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.min(value / max, 1);
+  return (
+    <div className="circular-progress" style={{ width:size, height:size }}>
+      <svg width={size} height={size}>
+        <circle className="track" cx={size/2} cy={size/2} r={r} strokeWidth={strokeWidth}/>
+        <circle className="fill" cx={size/2} cy={size/2} r={r} strokeWidth={strokeWidth}
+          stroke={color}
+          strokeDasharray={circ}
+          strokeDashoffset={circ * (1 - pct)}
+        />
+      </svg>
+      <span className="value" style={{ color }}>{Math.round(pct * 100)}%</span>
+    </div>
+  );
+}
+
+// ===== PROGRESS BAR COMPONENT =====
+function ProgressBar({ value, max=100, color }) {
+  const pct = Math.min((value / max) * 100, 100);
+  return (
+    <div className="progress-bar-bg">
+      <div className="progress-bar-fill" style={{ width: pct+'%', background: color || 'var(--gradient-main)' }}/>
+    </div>
+  );
+}
+
+// ===== DASHBOARD PAGE =====
+function DashboardPage() {
+  const today = new Date();
+  const greeting = today.getHours() < 12 ? 'Good Morning' : today.getHours() < 18 ? 'Good Afternoon' : 'Good Evening';
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>{greeting}, Yasser</h1>
+        <p>{today.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' })}</p>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid-5 section-gap">
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(34,197,94,0.15)' }}>🕌</div>
+          <div><div className="stat-value" style={{ color:'var(--prayer-color)' }}>{ACTIVITIES.prayers.done}/{ACTIVITIES.prayers.total}</div><div className="stat-label">Prayers Today</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(20,184,166,0.15)' }}>📖</div>
+          <div><div className="stat-value" style={{ color:'var(--quran-color)' }}>{ACTIVITIES.quran.pages}</div><div className="stat-label">Quran Pages</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(249,115,22,0.15)' }}>🏃</div>
+          <div><div className="stat-value" style={{ color:'var(--sports-color)' }}>{(ACTIVITIES.sports.steps/1000).toFixed(1)}k</div><div className="stat-label">Steps</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(59,130,246,0.15)' }}>😴</div>
+          <div><div className="stat-value" style={{ color:'var(--sleep-color)' }}>{ACTIVITIES.sleep.hours}h</div><div className="stat-label">Sleep</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(168,85,247,0.15)' }}>📋</div>
+          <div><div className="stat-value" style={{ color:'var(--project-color)' }}>{PILLARS.length}</div><div className="stat-label">Active Pillars</div></div>
+        </div>
+      </div>
+
+      <div className="grid-2 section-gap">
+        {/* Prayer Times */}
+        <div className="card">
+          <div className="card-title">🕌 Prayer Times</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {PRAYER_TIMES.map(p => (
+              <div key={p.name} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:'var(--radius-sm)', background: p.done ? 'rgba(34,197,94,0.08)' : 'var(--bg-input)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ width:32, height:32, borderRadius:8, background: p.done ? 'rgba(34,197,94,0.2)' : 'rgba(156,163,175,0.15)', display:'flex', alignItems:'center', justifyContent:'center', color: p.done ? '#22c55e' : 'var(--text-muted)', fontSize:14 }}>
+                    {p.done ? '✓' : '○'}
+                  </div>
+                  <span style={{ fontWeight:600, fontSize:14 }}>{p.name}</span>
+                </div>
+                <span style={{ color:'var(--text-muted)', fontSize:13 }}>{p.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Today's Timeline */}
+        <div className="card">
+          <div className="card-title">📅 Today's Schedule</div>
+          <div>
+            {[
+              { time:'05:12', label:'Fajr Prayer', color:'var(--prayer-color)', icon:'🕌' },
+              { time:'06:00', label:'Quran Reading - 3 pages', color:'var(--quran-color)', icon:'📖' },
+              { time:'08:00', label:'Thesis Chapter 3 - Writing', color:'var(--project-color)', icon:'📝' },
+              { time:'10:00', label:'IoT Project - Cloud Backend', color:'var(--accent-1)', icon:'💻' },
+              { time:'12:30', label:'Dhuhr Prayer', color:'var(--prayer-color)', icon:'🕌' },
+              { time:'14:00', label:'Research Paper - Data Collection', color:'var(--accent-2)', icon:'📊' },
+              { time:'16:00', label:'Walking / Sports', color:'var(--sports-color)', icon:'🏃' },
+              { time:'18:22', label:'Maghrib Prayer', color:'var(--prayer-color)', icon:'🕌' },
+            ].map((item, i) => (
+              <div key={i} className="timeline-item">
+                <div className="timeline-dot" style={{ background:item.color }}/>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:500 }}>{item.icon} {item.label}</div>
+                  <div className="timeline-time">{item.time}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Project Pillars Overview */}
+      <div className="card section-gap">
+        <div className="card-title" style={{ marginBottom:20 }}>🏗️ Project Pillars Overview</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          {PILLARS.map(p => (
+            <div key={p.id} style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 16px', background:'var(--bg-input)', borderRadius:'var(--radius-sm)' }}>
+              <CircularProgress value={p.progress} max={100} size={56} strokeWidth={5} color={
+                p.category === 'project' ? 'var(--accent-1)' :
+                p.category === 'paper' ? 'var(--accent-2)' :
+                'var(--accent-3)'
+              }/>
+              <div style={{ flex:1 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                  <span style={{ fontWeight:600, fontSize:15 }}>{p.title}</span>
+                  <span className={`badge badge-${p.category === 'project' ? 'project' : p.category === 'thesis' ? 'sleep' : 'quran'}`}>{p.category}</span>
+                  <span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'done' ? 'done' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>{p.status.replace('_',' ')}</span>
+                </div>
+                <div style={{ fontSize:13, color:'var(--text-muted)' }}>{p.done}/{p.milestones} milestones · Due {p.dueDate}</div>
+              </div>
+              <div style={{ textAlign:'right' }}>
+                <div style={{ fontSize:22, fontWeight:800, color:'var(--accent-1)' }}>{p.progress}%</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== PROJECT PILLARS PAGE =====
+function PillarsPage() {
+  const [selected, setSelected] = useState(null);
+  const [view, setView] = useState('cards');
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Project Pillars</h1>
+        <p>Track your pillars, milestones, and progress</p>
+      </div>
+
+      <div className="flex items-center justify-between section-gap">
+        <div className="tab-bar">
+          {['cards','table','gantt'].map(v => (
+            <div key={v} className={`tab-item ${view===v?'active':''}`} onClick={()=>setView(v)}>
+              {v.charAt(0).toUpperCase()+v.slice(1)}
+            </div>
+          ))}
+        </div>
+        <button className="btn-accent">+ New Pillar</button>
+      </div>
+
+      {view === 'cards' && (
+        <div className="grid-3 section-gap">
+          {PILLARS.map(p => (
+            <div key={p.id} className="card" style={{ cursor:'pointer' }} onClick={() => setSelected(p)}>
+              <div className="flex items-center justify-between" style={{ marginBottom:16 }}>
+                <span className={`badge badge-${p.category === 'project' ? 'project' : p.category === 'thesis' ? 'sleep' : 'quran'}`}>
+                  {p.category}
+                </span>
+                <span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'done' ? 'done' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>
+                  {p.status.replace('_',' ')}
+                </span>
+              </div>
+              <h3 style={{ fontSize:18, fontWeight:700, marginBottom:6 }}>{p.title}</h3>
+              <p style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:16 }}>{p.description}</p>
+              <ProgressBar value={p.progress}/>
+              <div className="flex items-center justify-between" style={{ marginTop:12 }}>
+                <span className="text-sm text-muted">{p.done}/{p.milestones} milestones</span>
+                <span style={{ fontSize:18, fontWeight:800, color:'var(--accent-1)' }}>{p.progress}%</span>
+              </div>
+              <div style={{ marginTop:12, fontSize:12, color:'var(--text-muted)' }}>Due: {p.dueDate}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {view === 'table' && (
+        <div className="card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Pillar</th><th>Category</th><th>Status</th><th>Progress</th><th>Milestones</th><th>Due Date</th><th>Priority</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PILLARS.map(p => (
+                <tr key={p.id} style={{ cursor:'pointer' }} onClick={() => setSelected(p)}>
+                  <td style={{ fontWeight:600 }}>{p.title}</td>
+                  <td><span className={`badge badge-${p.category === 'project' ? 'project' : 'quran'}`}>{p.category}</span></td>
+                  <td><span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>{p.status.replace('_',' ')}</span></td>
+                  <td><div style={{ display:'flex', alignItems:'center', gap:8 }}><ProgressBar value={p.progress}/><span className="text-sm font-bold">{p.progress}%</span></div></td>
+                  <td>{p.done}/{p.milestones}</td>
+                  <td style={{ color:'var(--text-secondary)' }}>{p.dueDate}</td>
+                  <td><span className={`badge ${p.priority === 'high' ? 'badge-blocked' : 'badge-progress'}`}>{p.priority}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {view === 'gantt' && (
+        <div className="card">
+          <div className="card-title">Timeline View</div>
+          <div style={{ fontSize:12, color:'var(--text-muted)', display:'flex', justifyContent:'space-between', marginBottom:16, padding:'0 160px 0 0' }}>
+            {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'].map(m => <span key={m}>{m}</span>)}
+          </div>
+          {PILLARS.map(p => {
+            const start = Math.random() * 30 + 5;
+            const width = p.progress * 0.7 + 10;
+            return (
+              <div key={p.id} className="gantt-row">
+                <div className="gantt-label">{p.title}</div>
+                <div className="gantt-track">
+                  <div className="gantt-fill" style={{
+                    left: start+'%', width: width+'%',
+                    background: p.category === 'project' ? 'var(--accent-1)' : p.category === 'thesis' ? 'var(--accent-3)' : 'var(--accent-2)',
+                  }}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Detail Panel */}
+      {selected && (
+        <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', justifyContent:'flex-end' }}>
+          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.5)' }} onClick={() => setSelected(null)}/>
+          <div style={{ width:480, background:'var(--bg-secondary)', borderLeft:'1px solid var(--border-color)', position:'relative', overflow:'auto', padding:32 }}>
+            <div className="flex items-center justify-between" style={{ marginBottom:24 }}>
+              <h2 style={{ fontSize:22, fontWeight:700 }}>{selected.title}</h2>
+              <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', color:'var(--text-secondary)', cursor:'pointer', padding:4 }}><Icons.X/></button>
+            </div>
+            <p style={{ color:'var(--text-secondary)', marginBottom:24 }}>{selected.description}</p>
+            <CircularProgress value={selected.progress} max={100} size={100} strokeWidth={8}/>
+            <div style={{ marginTop:24 }}>
+              <div className="card-title">Milestones</div>
+              {MILESTONES_DATA.filter(m => m.pillarId === selected.id).map(m => (
+                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border-color)' }}>
+                  <div style={{ width:24, height:24, borderRadius:6, background: m.status === 'done' ? 'rgba(34,197,94,0.2)' : 'var(--bg-input)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color: m.status === 'done' ? '#22c55e' : 'var(--text-muted)' }}>
+                    {m.status === 'done' ? '✓' : '○'}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:14, fontWeight:500 }}>{m.name}</div>
+                    <div className="text-xs text-muted">{m.dueDate}</div>
+                  </div>
+                  <span className={`badge badge-${m.status === 'done' ? 'done' : m.status === 'in_progress' ? 'progress' : 'not-started'}`}>
+                    {m.status.replace('_',' ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== CALENDAR PAGE =====
+function CalendarPage() {
+  const [viewMode, setViewMode] = useState('month');
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const monthName = today.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+
+  const eventDays = [3,5,7,10,12,15,16,18,20,22,25,28];
+  const todayDate = today.getDate();
+
+  const weekSchedule = [
+    { day:'Mon', events:[
+      { time:'05:15', label:'Fajr', color:'var(--prayer-color)' },
+      { time:'08:00', label:'Thesis Writing', color:'var(--project-color)' },
+      { time:'12:30', label:'Dhuhr', color:'var(--prayer-color)' },
+      { time:'14:00', label:'IoT Lab', color:'var(--accent-1)' },
+      { time:'16:00', label:'Gym', color:'var(--sports-color)' },
+    ]},
+    { day:'Tue', events:[
+      { time:'05:15', label:'Fajr', color:'var(--prayer-color)' },
+      { time:'09:00', label:'Paper Review', color:'var(--accent-2)' },
+      { time:'12:30', label:'Dhuhr', color:'var(--prayer-color)' },
+      { time:'15:00', label:'Supervisor Meeting', color:'var(--accent-3)' },
+    ]},
+    { day:'Wed', events:[
+      { time:'05:15', label:'Fajr', color:'var(--prayer-color)' },
+      { time:'08:00', label:'Data Collection', color:'var(--accent-2)' },
+      { time:'12:30', label:'Dhuhr', color:'var(--prayer-color)' },
+      { time:'16:00', label:'Walking', color:'var(--sports-color)' },
+    ]},
+    { day:'Thu', events:[
+      { time:'05:15', label:'Fajr', color:'var(--prayer-color)' },
+      { time:'09:00', label:'Cloud Backend Dev', color:'var(--accent-1)' },
+      { time:'12:30', label:'Dhuhr', color:'var(--prayer-color)' },
+      { time:'14:00', label:'White Paper Draft', color:'var(--accent-2)' },
+    ]},
+    { day:'Fri', events:[
+      { time:'05:15', label:'Fajr', color:'var(--prayer-color)' },
+      { time:'12:15', label:'Jummah', color:'var(--prayer-color)' },
+      { time:'14:00', label:'Quran Study', color:'var(--quran-color)' },
+      { time:'16:00', label:'Rest / Sports', color:'var(--sports-color)' },
+    ]},
+  ];
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Calendar</h1>
+        <p>Plan your days, weeks, and months</p>
+      </div>
+
+      <div className="tab-bar section-gap">
+        {['day','week','month'].map(v => (
+          <div key={v} className={`tab-item ${viewMode===v?'active':''}`} onClick={()=>setViewMode(v)}>
+            {v.charAt(0).toUpperCase()+v.slice(1)}
+          </div>
+        ))}
+      </div>
+
+      {viewMode === 'month' && (
+        <div className="grid-2">
+          <div className="card">
+            <h3 style={{ fontSize:20, fontWeight:700, marginBottom:20 }}>{monthName}</h3>
+            <div className="cal-grid">
+              {days.map(d => <div key={d} className="cal-header">{d}</div>)}
+              {Array(firstDay).fill(null).map((_, i) => <div key={'e'+i} className="cal-day empty"/>)}
+              {Array(daysInMonth).fill(null).map((_, i) => {
+                const d = i + 1;
+                const isToday = d === todayDate;
+                const hasEvent = eventDays.includes(d);
+                return (
+                  <div key={d} className={`cal-day ${isToday?'today':''} ${hasEvent?'has-event':''}`}>
+                    {d}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-title">Upcoming Events</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              {[
+                { date:'Apr 18', label:'Supervisor Meeting', type:'project', color:'var(--project-color)' },
+                { date:'Apr 20', label:'Paper Submission Deadline', type:'paper', color:'var(--accent-2)' },
+                { date:'Apr 22', label:'IoT Demo Day', type:'project', color:'var(--accent-1)' },
+                { date:'Apr 25', label:'Thesis Review', type:'thesis', color:'var(--accent-3)' },
+                { date:'May 01', label:'Conference Registration', type:'paper', color:'var(--accent-2)' },
+                { date:'May 05', label:'Sprint Planning', type:'project', color:'var(--project-color)' },
+              ].map((e, i) => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'var(--bg-input)', borderRadius:'var(--radius-sm)', borderLeft:`3px solid ${e.color}` }}>
+                  <div style={{ minWidth:60, fontSize:13, fontWeight:600, color:e.color }}>{e.date}</div>
+                  <div style={{ flex:1, fontSize:14, fontWeight:500 }}>{e.label}</div>
+                  <span className={`badge badge-${e.type === 'project' ? 'project' : 'quran'}`}>{e.type}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'week' && (
+        <div className="card">
+          <h3 style={{ fontSize:18, fontWeight:700, marginBottom:20 }}>This Week</h3>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:12 }}>
+            {weekSchedule.map(ws => (
+              <div key={ws.day} style={{ background:'var(--bg-input)', borderRadius:'var(--radius-sm)', padding:16 }}>
+                <div style={{ fontWeight:700, fontSize:14, marginBottom:12, color:'var(--accent-1)' }}>{ws.day}</div>
+                {ws.events.map((ev, i) => (
+                  <div key={i} style={{ padding:'8px 10px', marginBottom:6, borderRadius:8, borderLeft:`3px solid ${ev.color}`, background:'var(--bg-card)', fontSize:12 }}>
+                    <div style={{ fontWeight:600, marginBottom:2 }}>{ev.label}</div>
+                    <div style={{ color:'var(--text-muted)' }}>{ev.time}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'day' && (
+        <div className="card">
+          <h3 style={{ fontSize:18, fontWeight:700, marginBottom:20 }}>
+            Today — {today.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' })}
+          </h3>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {[
+              { time:'05:12', end:'05:30', label:'Fajr Prayer', color:'var(--prayer-color)', icon:'🕌' },
+              { time:'06:00', end:'06:45', label:'Quran Reading', color:'var(--quran-color)', icon:'📖' },
+              { time:'08:00', end:'10:00', label:'Thesis - Chapter 3', color:'var(--project-color)', icon:'📝' },
+              { time:'10:00', end:'12:00', label:'IoT Cloud Backend', color:'var(--accent-1)', icon:'💻' },
+              { time:'12:30', end:'12:50', label:'Dhuhr Prayer', color:'var(--prayer-color)', icon:'🕌' },
+              { time:'13:00', end:'14:00', label:'Lunch Break', color:'var(--text-muted)', icon:'🍽️' },
+              { time:'14:00', end:'16:00', label:'Research - Data Analysis', color:'var(--accent-2)', icon:'📊' },
+              { time:'16:00', end:'17:00', label:'Walking / Exercise', color:'var(--sports-color)', icon:'🏃' },
+              { time:'18:22', end:'18:40', label:'Maghrib Prayer', color:'var(--prayer-color)', icon:'🕌' },
+              { time:'19:00', end:'20:30', label:'White Paper Draft', color:'var(--accent-2)', icon:'✍️' },
+              { time:'19:45', end:'20:00', label:'Isha Prayer', color:'var(--prayer-color)', icon:'🕌' },
+              { time:'22:00', end:'22:30', label:'Review & Plan Tomorrow', color:'var(--accent-3)', icon:'📋' },
+            ].map((ev, i) => (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 16px', background:'var(--bg-input)', borderRadius:'var(--radius-sm)', borderLeft:`4px solid ${ev.color}` }}>
+                <div style={{ minWidth:90, fontSize:13, color:'var(--text-muted)' }}>{ev.time} – {ev.end}</div>
+                <div style={{ fontSize:20 }}>{ev.icon}</div>
+                <div style={{ fontWeight:600, fontSize:14 }}>{ev.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== ACTIVITIES PAGE =====
+function ActivitiesPage() {
+  const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } = Recharts || {};
+
+  const pieData = [
+    { name:'Prayers', value: 95, color:'#22c55e' },
+    { name:'Quran', value: 80, color:'#14b8a6' },
+    { name:'Sports', value: 64, color:'#f97316' },
+    { name:'Sleep', value: 90, color:'#3b82f6' },
+  ];
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Activity Tracking</h1>
+        <p>Prayers, Quran, Sports, Sleep & more</p>
+      </div>
+
+      {/* Activity Tiles */}
+      <div className="grid-5 section-gap">
+        <div className="activity-tile" style={{ background:'rgba(34,197,94,0.06)', borderColor:'rgba(34,197,94,0.2)' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>🕌</div>
+          <div style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:4 }}>Prayers</div>
+          <div style={{ fontSize:26, fontWeight:800, color:'#22c55e' }}>{ACTIVITIES.prayers.done}/{ACTIVITIES.prayers.total}</div>
+          <ProgressBar value={ACTIVITIES.prayers.done} max={ACTIVITIES.prayers.total} color="#22c55e"/>
+          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:8 }}>🔥 {ACTIVITIES.prayers.streak} day streak</div>
+        </div>
+
+        <div className="activity-tile" style={{ background:'rgba(20,184,166,0.06)', borderColor:'rgba(20,184,166,0.2)' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>📖</div>
+          <div style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:4 }}>Quran</div>
+          <div style={{ fontSize:26, fontWeight:800, color:'#14b8a6' }}>{ACTIVITIES.quran.pages}/{ACTIVITIES.quran.target} <span style={{ fontSize:13, fontWeight:400 }}>pages</span></div>
+          <ProgressBar value={ACTIVITIES.quran.pages} max={ACTIVITIES.quran.target} color="#14b8a6"/>
+          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:8 }}>🔥 {ACTIVITIES.quran.streak} day streak</div>
+        </div>
+
+        <div className="activity-tile" style={{ background:'rgba(249,115,22,0.06)', borderColor:'rgba(249,115,22,0.2)' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>🏃</div>
+          <div style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:4 }}>Sports</div>
+          <div style={{ fontSize:26, fontWeight:800, color:'#f97316' }}>{(ACTIVITIES.sports.steps/1000).toFixed(1)}k <span style={{ fontSize:13, fontWeight:400 }}>steps</span></div>
+          <ProgressBar value={ACTIVITIES.sports.steps} max={ACTIVITIES.sports.target} color="#f97316"/>
+          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:8 }}>{ACTIVITIES.sports.minutes} min active</div>
+        </div>
+
+        <div className="activity-tile" style={{ background:'rgba(59,130,246,0.06)', borderColor:'rgba(59,130,246,0.2)' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>😴</div>
+          <div style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:4 }}>Sleep</div>
+          <div style={{ fontSize:26, fontWeight:800, color:'#3b82f6' }}>{ACTIVITIES.sleep.hours}h</div>
+          <ProgressBar value={ACTIVITIES.sleep.hours} max={ACTIVITIES.sleep.target} color="#3b82f6"/>
+          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:8 }}>Quality: {ACTIVITIES.sleep.quality}%</div>
+        </div>
+
+        <div className="activity-tile" style={{ background:'rgba(244,63,94,0.06)', borderColor:'rgba(244,63,94,0.2)' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>🏖️</div>
+          <div style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:4 }}>Vacation</div>
+          <div style={{ fontSize:26, fontWeight:800, color:'#f43f5e' }}>{ACTIVITIES.vacation.used}/{ACTIVITIES.vacation.total}</div>
+          <ProgressBar value={ACTIVITIES.vacation.used} max={ACTIVITIES.vacation.total} color="#f43f5e"/>
+          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:8 }}>{ACTIVITIES.vacation.total - ACTIVITIES.vacation.used} days left</div>
+        </div>
+      </div>
+
+      <div className="grid-2 section-gap">
+        {/* Weekly Activity Chart */}
+        <div className="card">
+          <div className="card-title">Weekly Sports Activity</div>
+          {BarChart ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={WEEKLY_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)"/>
+                <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={12}/>
+                <YAxis stroke="var(--text-muted)" fontSize={12}/>
+                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
+                <Bar dataKey="sports" fill="#f97316" radius={[4,4,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <div style={{ textAlign:'center', color:'var(--text-muted)', padding:40 }}>Charts loading...</div>}
+        </div>
+
+        {/* Sleep Trend */}
+        <div className="card">
+          <div className="card-title">Sleep Hours This Week</div>
+          {LineChart ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={WEEKLY_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)"/>
+                <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={12}/>
+                <YAxis stroke="var(--text-muted)" fontSize={12} domain={[5,10]}/>
+                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
+                <Line type="monotone" dataKey="sleep" stroke="#3b82f6" strokeWidth={3} dot={{ r:5, fill:'#3b82f6' }}/>
+              </LineChart>
+            </ResponsiveContainer>
+          ) : <div style={{ textAlign:'center', color:'var(--text-muted)', padding:40 }}>Charts loading...</div>}
+        </div>
+      </div>
+
+      {/* Prayer Completion Grid */}
+      <div className="card section-gap">
+        <div className="card-title">Prayer Completion This Week</div>
+        <div style={{ display:'grid', gridTemplateColumns:'80px repeat(7,1fr)', gap:8 }}>
+          <div/>
+          {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => <div key={d} style={{ textAlign:'center', fontSize:12, fontWeight:600, color:'var(--text-muted)' }}>{d}</div>)}
+          {['Fajr','Dhuhr','Asr','Maghrib','Isha'].map(prayer => (
+            <React.Fragment key={prayer}>
+              <div style={{ fontSize:13, fontWeight:500, display:'flex', alignItems:'center' }}>{prayer}</div>
+              {[1,2,3,4,5,6,7].map(day => {
+                const done = Math.random() > 0.15;
+                return (
+                  <div key={day} style={{
+                    height:36, borderRadius:8,
+                    background: done ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.1)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:14, color: done ? '#22c55e' : '#ef4444',
+                  }}>
+                    {done ? '✓' : '✗'}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== ANALYTICS PAGE =====
+function AnalyticsPage() {
+  const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } = Recharts || {};
+
+  const monthlyProgress = [
+    { month:'Jan', tasks:12, completed:10 },
+    { month:'Feb', tasks:15, completed:13 },
+    { month:'Mar', tasks:18, completed:14 },
+    { month:'Apr', tasks:20, completed:16 },
+  ];
+
+  const categoryData = [
+    { name:'Projects', value:35, color:'#a855f7' },
+    { name:'Papers', value:30, color:'#ec4899' },
+    { name:'Thesis', value:20, color:'#6366f1' },
+    { name:'White Paper', value:15, color:'#f97316' },
+  ];
+
+  const productivityTrend = [
+    { week:'W1', focus:6.5, meetings:2, deep:4.5 },
+    { week:'W2', focus:7.2, meetings:1.5, deep:5.7 },
+    { week:'W3', focus:5.8, meetings:3, deep:2.8 },
+    { week:'W4', focus:8.0, meetings:1, deep:7.0 },
+  ];
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Analytics & Insights</h1>
+        <p>Performance metrics and data visualization</p>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid-4 section-gap">
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(168,85,247,0.15)', color:'#a855f7', fontSize:20 }}>📊</div>
+          <div><div className="stat-value">82%</div><div className="stat-label">Overall Completion</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(34,197,94,0.15)', color:'#22c55e', fontSize:20 }}>⚡</div>
+          <div><div className="stat-value">94%</div><div className="stat-label">Prayer Consistency</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(59,130,246,0.15)', color:'#3b82f6', fontSize:20 }}>🎯</div>
+          <div><div className="stat-value">7.4h</div><div className="stat-label">Avg Focus Time</div></div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background:'rgba(249,115,22,0.15)', color:'#f97316', fontSize:20 }}>🔥</div>
+          <div><div className="stat-value">21</div><div className="stat-label">Day Streak</div></div>
+        </div>
+      </div>
+
+      <div className="grid-2 section-gap">
+        {/* Monthly Task Completion */}
+        <div className="card">
+          <div className="card-title">Monthly Task Completion</div>
+          {BarChart ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={monthlyProgress}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)"/>
+                <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={12}/>
+                <YAxis stroke="var(--text-muted)" fontSize={12}/>
+                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
+                <Legend/>
+                <Bar dataKey="tasks" name="Total" fill="var(--accent-3)" radius={[4,4,0,0]}/>
+                <Bar dataKey="completed" name="Done" fill="var(--accent-1)" radius={[4,4,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : null}
+        </div>
+
+        {/* Category Distribution */}
+        <div className="card">
+          <div className="card-title">Work Distribution</div>
+          {PieChart ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={4} dataKey="value">
+                  {categoryData.map((entry, i) => <Cell key={i} fill={entry.color}/>)}
+                </Pie>
+                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
+                <Legend/>
+              </PieChart>
+            </ResponsiveContainer>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid-2 section-gap">
+        {/* Focus Time Trend */}
+        <div className="card">
+          <div className="card-title">Productivity Trend (hours/day)</div>
+          {AreaChart ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={productivityTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)"/>
+                <XAxis dataKey="week" stroke="var(--text-muted)" fontSize={12}/>
+                <YAxis stroke="var(--text-muted)" fontSize={12}/>
+                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
+                <Area type="monotone" dataKey="deep" name="Deep Work" stackId="1" stroke="#a855f7" fill="rgba(168,85,247,0.3)"/>
+                <Area type="monotone" dataKey="meetings" name="Meetings" stackId="1" stroke="#ec4899" fill="rgba(236,72,153,0.3)"/>
+                <Legend/>
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : null}
+        </div>
+
+        {/* Pillar Progress Summary */}
+        <div className="card">
+          <div className="card-title">Pillar Progress</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+            {PILLARS.map(p => (
+              <div key={p.id}>
+                <div className="flex items-center justify-between" style={{ marginBottom:6 }}>
+                  <span style={{ fontSize:14, fontWeight:500 }}>{p.title}</span>
+                  <span style={{ fontSize:14, fontWeight:700, color:'var(--accent-1)' }}>{p.progress}%</span>
+                </div>
+                <ProgressBar value={p.progress} color={
+                  p.progress >= 60 ? '#22c55e' :
+                  p.progress >= 30 ? '#f97316' :
+                  '#ef4444'
+                }/>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* AI Insights */}
+      <div className="card">
+        <div className="card-title">🤖 AI Insights & Recommendations</div>
+        <div className="grid-3">
+          {[
+            { icon:'💡', title:'Focus Block', desc:'Your peak productivity is 8-11 AM. Schedule thesis writing during this window for best output.' },
+            { icon:'⚠️', title:'Paper #2 Alert', desc:'Research Paper #2 hasn\'t started yet and is due Jul 1. Consider allocating 2h/week starting now.' },
+            { icon:'🏃', title:'Activity Gap', desc:'Steps goal only hit 3/7 days last week. Try a 15-min walk after Dhuhr to maintain consistency.' },
+            { icon:'🌙', title:'Sleep Pattern', desc:'Average 7.2h this week, under your 8h target. Earlier bedtime on Thu-Fri could help recovery.' },
+            { icon:'📖', title:'Quran Streak', desc:'21-day streak! You\'re in the top consistency range. Consider increasing to 5 pages on weekends.' },
+            { icon:'🎯', title:'Milestone Push', desc:'IoT project is 65% done with 5/8 milestones. Completing Cloud Backend this week puts you ahead of schedule.' },
+          ].map((item, i) => (
+            <div key={i} style={{ padding:16, background:'var(--bg-input)', borderRadius:'var(--radius-sm)' }}>
+              <div style={{ fontSize:24, marginBottom:8 }}>{item.icon}</div>
+              <div style={{ fontWeight:600, fontSize:14, marginBottom:6 }}>{item.title}</div>
+              <div style={{ fontSize:13, color:'var(--text-secondary)', lineHeight:1.5 }}>{item.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== THEME PANEL =====
+function ThemePanel({ open, onClose, theme, setTheme, layout, setLayout }) {
+  return (
+    <>
+      <div className={`theme-panel-overlay ${open?'open':''}`} onClick={onClose}/>
+      <div className={`theme-panel ${open?'open':''}`}>
+        <div className="flex items-center justify-between" style={{ marginBottom:24 }}>
+          <h2 style={{ fontSize:20, fontWeight:700 }}>Appearance</h2>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-secondary)', cursor:'pointer' }}><Icons.X/></button>
+        </div>
+
+        <div style={{ marginBottom:32 }}>
+          <div className="card-title">Color Theme</div>
+          {THEMES.map(t => (
+            <div key={t.id} className={`theme-swatch ${theme===t.id?'active':''}`}
+              style={{ background: theme===t.id ? 'var(--bg-card-hover)' : 'var(--bg-input)' }}
+              onClick={() => setTheme(t.id)}>
+              <div className="swatch-colors">
+                {t.colors.map((c,i) => <div key={i} className="swatch-dot" style={{ background:c }}/>)}
+              </div>
+              <div>
+                <div style={{ fontWeight:600, fontSize:14 }}>{t.name}</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)' }}>{t.desc}</div>
+              </div>
+              {theme === t.id && <div style={{ marginLeft:'auto', color:'var(--accent-1)' }}><Icons.Check/></div>}
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <div className="card-title">Layout</div>
+          {LAYOUTS.map(l => (
+            <div key={l.id} className={`theme-swatch ${layout===l.id?'active':''}`}
+              style={{ background: layout===l.id ? 'var(--bg-card-hover)' : 'var(--bg-input)' }}
+              onClick={() => setLayout(l.id)}>
+              <div style={{ width:40, height:28, borderRadius:6, border:'2px solid var(--border-color)', display:'flex', overflow:'hidden' }}>
+                <div style={{ width: l.id === 'compact' ? 8 : l.id === 'spacious' ? 16 : 12, background:'var(--accent-1)', opacity:0.3 }}/>
+                <div style={{ flex:1, background:'var(--bg-card)' }}/>
+              </div>
+              <div>
+                <div style={{ fontWeight:600, fontSize:14 }}>{l.name}</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)' }}>{l.desc}</div>
+              </div>
+              {layout === l.id && <div style={{ marginLeft:'auto', color:'var(--accent-1)' }}><Icons.Check/></div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ===== SIDEBAR =====
+function Sidebar({ page, setPage }) {
+  const navItems = [
+    { id:'dashboard', icon:<Icons.Home/>, label:'Dashboard' },
+    { id:'pillars', icon:<Icons.Layers/>, label:'Pillars' },
+    { id:'calendar', icon:<Icons.Calendar/>, label:'Calendar' },
+    { id:'activities', icon:<Icons.Activity/>, label:'Activities' },
+    { id:'analytics', icon:<Icons.BarChart/>, label:'Analytics' },
+  ];
+
+  return (
+    <nav className="sidebar">
+      <div className="sidebar-logo">
+        <div className="logo-icon">M</div>
+        <span className="logo-text">Mariam Portal</span>
+      </div>
+      <div className="sidebar-nav">
+        {navItems.map(item => (
+          <a key={item.id} className={`nav-item ${page===item.id?'active':''}`} onClick={() => setPage(item.id)}>
+            {item.icon}
+            <span className="nav-label">{item.label}</span>
+          </a>
+        ))}
+      </div>
+      <div className="sidebar-footer">
+        <a className="nav-item" style={{ fontSize:13 }}>
+          <Icons.Settings/>
+          <span className="sidebar-footer-text">Settings</span>
+        </a>
+      </div>
+    </nav>
+  );
+}
+
+// ===== MOBILE NAV =====
+function MobileNav({ page, setPage }) {
+  const items = [
+    { id:'dashboard', icon:<Icons.Home/>, label:'Home' },
+    { id:'pillars', icon:<Icons.Layers/>, label:'Pillars' },
+    { id:'calendar', icon:<Icons.Calendar/>, label:'Calendar' },
+    { id:'activities', icon:<Icons.Activity/>, label:'Activity' },
+    { id:'analytics', icon:<Icons.BarChart/>, label:'Analytics' },
+  ];
+  return (
+    <div className="mobile-nav">
+      <div className="mobile-nav-items">
+        {items.map(item => (
+          <div key={item.id} className={`mobile-nav-item ${page===item.id?'active':''}`} onClick={() => setPage(item.id)}>
+            {item.icon}
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ===== APP =====
+function App() {
+  const [page, setPage] = useState('dashboard');
+  const [theme, setTheme] = useState(localStorage.getItem('mariam-theme') || 'aurora');
+  const [layout, setLayout] = useState(localStorage.getItem('mariam-layout') || 'default');
+  const [themeOpen, setThemeOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('mariam-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    document.body.setAttribute('data-layout', layout);
+    localStorage.setItem('mariam-layout', layout);
+  }, [layout]);
+
+  const pages = {
+    dashboard: <DashboardPage/>,
+    pillars: <PillarsPage/>,
+    calendar: <CalendarPage/>,
+    activities: <ActivitiesPage/>,
+    analytics: <AnalyticsPage/>,
+  };
+
+  return (
+    <div className="app-shell">
+      <Sidebar page={page} setPage={setPage}/>
+      <main className="main-content">
+        {/* Top bar with theme toggle */}
+        <div className="flex items-center justify-between" style={{ marginBottom:20 }}>
+          <div/>
+          <button onClick={() => setThemeOpen(true)} className="btn-accent" style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px' }}>
+            <Icons.Palette/> Customize
+          </button>
+        </div>
+
+        {pages[page]}
+      </main>
+      <MobileNav page={page} setPage={setPage}/>
+      <ThemePanel open={themeOpen} onClose={() => setThemeOpen(false)} theme={theme} setTheme={setTheme} layout={layout} setLayout={setLayout}/>
+    </div>
+  );
+}
+
+// Mount
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
 </html>
