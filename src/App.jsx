@@ -2752,6 +2752,266 @@ function AdminProjectAccess({ pillars, profiles, members, onRefresh }) {
   );
 }
 
+// ─── AnalysisView ─────────────────────────────────────────────────────────────
+function AnalysisView({ pillars, milestones, profiles }) {
+  const today = new Date().toISOString().split("T")[0];
+  const in7 = new Date(Date.now() + 7*86400000).toISOString().split("T")[0];
+  const in30 = new Date(Date.now() + 30*86400000).toISOString().split("T")[0];
+
+  const total = milestones.length;
+  const done = milestones.filter(m => m.status === "done").length;
+  const overdue = milestones.filter(m => m.due_date && m.due_date < today && m.status !== "done");
+  const dueWeek = milestones.filter(m => m.due_date && m.due_date >= today && m.due_date <= in7 && m.status !== "done");
+  const dueMth = milestones.filter(m => m.due_date && m.due_date > in7 && m.due_date <= in30 && m.status !== "done");
+  const doFirst = milestones.filter(m => m.urgent && m.important && m.status !== "done");
+  const blocked = milestones.filter(m => m.status === "blocked");
+  const pct = total ? Math.round((done / total) * 100) : 0;
+
+  // Per-pillar health
+  const pillarHealth = pillars.map(p => {
+    const ms = milestones.filter(m => m.pillar_id === p.id);
+    const d = ms.filter(m => m.status === "done").length;
+    const ov = ms.filter(m => m.due_date && m.due_date < today && m.status !== "done").length;
+    const pct = ms.length ? Math.round((d / ms.length) * 100) : 0;
+    return { ...p, total: ms.length, done: d, overdue: ov, pct };
+  }).sort((a, b) => a.pct - b.pct);
+
+  // Priority score: overdue + do-first milestones per pillar
+  const prioritised = [...pillarHealth].sort((a, b) => (b.overdue + (milestones.filter(m => m.pillar_id === b.id && m.urgent && m.important && m.status !== "done").length)) - (a.overdue + (milestones.filter(m => m.pillar_id === a.id && m.urgent && m.important && m.status !== "done").length)));
+
+  const card = (title, value, sub, bg) => (
+    <div style={{ background: bg, borderRadius: 16, padding: "16px 20px", color: "#fff", minWidth: 100 }}>
+      <div style={{ fontSize: 28, fontWeight: 900 }}>{value}</div>
+      <div style={{ fontSize: 13, fontWeight: 700 }}>{title}</div>
+      {sub && <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "24px 16px 96px" }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#0f172a,#1e293b)", color: "#fff", padding: "8px 20px", borderRadius: 99, fontWeight: 900, fontSize: 14 }}>
+          📊 Project Analysis & Priority Guide
+        </span>
+      </div>
+
+      {/* Stats strip */}
+      <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20 }}>
+        {card("Overall", `${pct}%`, `${done}/${total} done`, "linear-gradient(135deg,#7c3aed,#a855f7)")}
+        {card("Overdue", overdue.length, "need action now", overdue.length ? "linear-gradient(135deg,#dc2626,#ef4444)" : "linear-gradient(135deg,#16a34a,#22c55e)")}
+        {card("This Week", dueWeek.length, "milestones due", "linear-gradient(135deg,#2563eb,#3b82f6)")}
+        {card("Do First", doFirst.length, "urgent + important", "linear-gradient(135deg,#db2777,#f43f5e)")}
+        {card("Blocked", blocked.length, "need unblocking", blocked.length ? "linear-gradient(135deg,#92400e,#d97706)" : "linear-gradient(135deg,#475569,#64748b)")}
+      </div>
+
+      {/* Priority recommendations */}
+      <div style={{ background: "#fff", borderRadius: 20, border: "2px solid #e2e8f0", padding: "20px", marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+        <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12, color: "#0f172a" }}>🎯 Priority Recommendations</div>
+
+        {overdue.length > 0 && (
+          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "12px 16px", marginBottom: 10 }}>
+            <div style={{ fontWeight: 800, color: "#dc2626", fontSize: 13, marginBottom: 6 }}>⚠️ {overdue.length} Overdue — Address These First</div>
+            {overdue.slice(0, 3).map(m => {
+              const p = pillars.find(p => p.id === m.pillar_id);
+              return <div key={m.id} style={{ fontSize: 12, color: "#7f1d1d", padding: "3px 0" }}>• {m.name} <span style={{ opacity: 0.6 }}>({p?.name}) — was due {m.due_date}</span></div>;
+            })}
+            {overdue.length > 3 && <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>+{overdue.length - 3} more overdue</div>}
+          </div>
+        )}
+
+        {doFirst.length > 0 && (
+          <div style={{ background: "#fff1f2", border: "1px solid #fda4af", borderRadius: 12, padding: "12px 16px", marginBottom: 10 }}>
+            <div style={{ fontWeight: 800, color: "#be185d", fontSize: 13, marginBottom: 6 }}>🔴 {doFirst.length} Do-First Milestones (Urgent + Important)</div>
+            {doFirst.slice(0, 3).map(m => {
+              const p = pillars.find(p => p.id === m.pillar_id);
+              return <div key={m.id} style={{ fontSize: 12, color: "#881337", padding: "3px 0" }}>• {m.name} <span style={{ opacity: 0.6 }}>({p?.name})</span></div>;
+            })}
+          </div>
+        )}
+
+        {dueWeek.length > 0 && (
+          <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "12px 16px", marginBottom: 10 }}>
+            <div style={{ fontWeight: 800, color: "#1d4ed8", fontSize: 13, marginBottom: 6 }}>📅 {dueWeek.length} Due This Week — Plan Now</div>
+            {dueWeek.slice(0, 3).map(m => {
+              const p = pillars.find(p => p.id === m.pillar_id);
+              return <div key={m.id} style={{ fontSize: 12, color: "#1e3a8a", padding: "3px 0" }}>• {m.name} <span style={{ opacity: 0.6 }}>({p?.name}) — {m.due_date}</span></div>;
+            })}
+          </div>
+        )}
+
+        {overdue.length === 0 && doFirst.length === 0 && dueWeek.length === 0 && (
+          <div style={{ textAlign: "center", color: "#22c55e", fontWeight: 800, padding: "12px 0" }}>✅ You're on track — no urgent items!</div>
+        )}
+      </div>
+
+      {/* Project health table */}
+      <div style={{ background: "#fff", borderRadius: 20, border: "2px solid #e2e8f0", padding: "20px", marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+        <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12, color: "#0f172a" }}>📁 Project Health — Lowest First</div>
+        {pillarHealth.map(p => (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
+            <span style={{ fontSize: 20 }}>{p.icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{p.name}</div>
+              <div style={{ height: 6, background: "#f1f5f9", borderRadius: 99, marginTop: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${p.pct}%`, background: p.pct >= 70 ? "#22c55e" : p.pct >= 40 ? "#f59e0b" : "#ef4444", borderRadius: 99, transition: "width 0.5s" }} />
+              </div>
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontWeight: 900, fontSize: 15, color: p.pct >= 70 ? "#16a34a" : p.pct >= 40 ? "#d97706" : "#dc2626" }}>{p.pct}%</div>
+              <div style={{ fontSize: 10, color: "#94a3b8" }}>{p.done}/{p.total}{p.overdue > 0 ? ` · ${p.overdue} late` : ""}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Focus order */}
+      <div style={{ background: "linear-gradient(135deg,#0f172a,#1e293b)", borderRadius: 20, padding: "20px" }}>
+        <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12, color: "#fff" }}>🏆 Suggested Focus Order</div>
+        {prioritised.filter(p => p.total > 0).map((p, i) => (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+            <span style={{ width: 28, height: 28, borderRadius: "50%", background: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#92400e" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: "#fff", flexShrink: 0 }}>{i + 1}</span>
+            <span style={{ fontSize: 18 }}>{p.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>{p.name}</div>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>{p.overdue > 0 ? `${p.overdue} overdue · ` : ""}{p.pct}% complete</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── MyDayView ─────────────────────────────────────────────────────────────────
+const DEFAULT_ROUTINE = [
+  { id: "wake",    time: "06:30", label: "Wake up & morning routine", icon: "☀️", type: "routine", duration: 30 },
+  { id: "ex",      time: "07:00", label: "Exercise / run",            icon: "🏃", type: "routine", duration: 45 },
+  { id: "bkfst",   time: "08:00", label: "Breakfast",                 icon: "🍳", type: "routine", duration: 20 },
+  { id: "commute", time: "08:30", label: "Commute to work",           icon: "🚗", type: "routine", duration: 30 },
+  { id: "lunch",   time: "13:00", label: "Lunch break",               icon: "🥗", type: "routine", duration: 60 },
+  { id: "end",     time: "17:30", label: "End of work / commute home",icon: "🏠", type: "routine", duration: 45 },
+  { id: "dinner",  time: "19:30", label: "Dinner",                    icon: "🍽️", type: "routine", duration: 45 },
+  { id: "wind",    time: "22:00", label: "Wind down / sleep prep",    icon: "🌙", type: "routine", duration: 30 },
+];
+
+function MyDayView({ milestones, pillars }) {
+  const today = new Date().toISOString().split("T")[0];
+  const todayLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const in7 = new Date(Date.now() + 7*86400000).toISOString().split("T")[0];
+
+  const urgent = milestones.filter(m => m.status !== "done" && m.due_date && m.due_date <= in7);
+  const overdue = urgent.filter(m => m.due_date < today);
+  const dueToday = urgent.filter(m => m.due_date === today);
+  const dueWeek = urgent.filter(m => m.due_date > today);
+  const doFirst = milestones.filter(m => m.urgent && m.important && m.status !== "done");
+
+  const [slots, setSlots] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("myday_slots") || "null") || DEFAULT_ROUTINE; } catch { return DEFAULT_ROUTINE; }
+  });
+  const [newSlot, setNewSlot] = React.useState({ time: "09:00", label: "", icon: "📌" });
+  const [showAdd, setShowAdd] = React.useState(false);
+
+  const saveSlots = (s) => { setSlots(s); try { localStorage.setItem("myday_slots", JSON.stringify(s)); } catch {} };
+  const addSlot = () => {
+    if (!newSlot.label.trim()) return;
+    const s = [...slots, { ...newSlot, id: `s${Date.now()}`, type: "task" }].sort((a, b) => a.time.localeCompare(b.time));
+    saveSlots(s);
+    setNewSlot({ time: "09:00", label: "", icon: "📌" });
+    setShowAdd(false);
+  };
+  const removeSlot = (id) => saveSlots(slots.filter(s => s.id !== id));
+
+  const sorted = [...slots].sort((a, b) => a.time.localeCompare(b.time));
+
+  const pill = (m, color) => {
+    const p = pillars.find(pl => pl.id === m.pillar_id);
+    return (
+      <div key={m.id} style={{ background: color + "11", border: `1px solid ${color}44`, borderRadius: 10, padding: "8px 12px", marginBottom: 6 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{m.name}</div>
+        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{p?.icon} {p?.name} {m.due_date ? `· due ${m.due_date}` : ""}</div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ padding: "24px 16px 96px" }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#0369a1,#0ea5e9)", color: "#fff", padding: "8px 20px", borderRadius: 99, fontWeight: 900, fontSize: 14 }}>
+          🌅 My Day — {todayLabel}
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+        <div style={{ background: overdue.length ? "#fef2f2" : "#f0fdf4", border: `2px solid ${overdue.length ? "#fca5a5" : "#86efac"}`, borderRadius: 16, padding: "14px 16px" }}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: overdue.length ? "#dc2626" : "#16a34a" }}>{overdue.length}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Overdue</div>
+        </div>
+        <div style={{ background: "#eff6ff", border: "2px solid #bfdbfe", borderRadius: 16, padding: "14px 16px" }}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: "#2563eb" }}>{dueToday.length + dueWeek.length}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Due Soon</div>
+        </div>
+      </div>
+
+      {/* Today's focus */}
+      {(overdue.length > 0 || dueToday.length > 0 || doFirst.length > 0) && (
+        <div style={{ background: "#fff", borderRadius: 20, border: "2px solid #e2e8f0", padding: "16px", marginBottom: 16 }}>
+          <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 10, color: "#0f172a" }}>🎯 Today's Focus</div>
+          {overdue.slice(0, 2).map(m => pill(m, "#ef4444"))}
+          {dueToday.slice(0, 2).map(m => pill(m, "#3b82f6"))}
+          {doFirst.filter(m => !overdue.includes(m) && !dueToday.includes(m)).slice(0, 2).map(m => pill(m, "#8b5cf6"))}
+        </div>
+      )}
+
+      {/* Due this week */}
+      {dueWeek.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 20, border: "2px solid #e2e8f0", padding: "16px", marginBottom: 16 }}>
+          <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 10, color: "#0f172a" }}>📅 Due This Week</div>
+          {dueWeek.slice(0, 4).map(m => pill(m, "#f59e0b"))}
+          {dueWeek.length > 4 && <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginTop: 4 }}>+{dueWeek.length - 4} more</div>}
+        </div>
+      )}
+
+      {/* Daily schedule */}
+      <div style={{ background: "#fff", borderRadius: 20, border: "2px solid #e2e8f0", padding: "16px", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontWeight: 900, fontSize: 14, color: "#0f172a" }}>🗓️ Daily Schedule</div>
+          <button onClick={() => setShowAdd(!showAdd)} style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", color: "#fff", border: "none", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>+ Add Slot</button>
+        </div>
+
+        {showAdd && (
+          <div style={{ background: "#f8fafc", borderRadius: 12, padding: "12px", marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <input type="time" value={newSlot.time} onChange={e => setNewSlot({ ...newSlot, time: e.target.value })} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }} />
+            <input type="text" placeholder="What are you doing?" value={newSlot.label} onChange={e => setNewSlot({ ...newSlot, label: e.target.value })} style={{ flex: 1, minWidth: 150, padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }} />
+            <input type="text" placeholder="Emoji" value={newSlot.icon} onChange={e => setNewSlot({ ...newSlot, icon: e.target.value })} style={{ width: 60, padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, textAlign: "center" }} />
+            <button onClick={addSlot} style={{ background: "#22c55e", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Add</button>
+          </div>
+        )}
+
+        {sorted.map(s => (
+          <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: "1px solid #f1f5f9" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "#7c3aed", minWidth: 42, flexShrink: 0 }}>{s.time}</span>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>{s.icon}</span>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: s.type === "task" ? 700 : 500, color: s.type === "task" ? "#1e293b" : "#475569" }}>{s.label}</span>
+            {s.type === "task" && (
+              <button onClick={() => removeSlot(s.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", fontSize: 16, padding: "0 4px" }}>×</button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Tips */}
+      <div style={{ background: "linear-gradient(135deg,#0369a1,#0ea5e9)", borderRadius: 20, padding: "20px", color: "#fff" }}>
+        <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 10 }}>💡 Productivity Tips for Today</div>
+        {overdue.length > 0 && <div style={{ fontSize: 13, marginBottom: 6 }}>• Start your workday by clearing the {overdue.length} overdue item{overdue.length > 1 ? "s" : ""} — even 30 min makes a difference.</div>}
+        {doFirst.length > 0 && <div style={{ fontSize: 13, marginBottom: 6 }}>• Schedule your Do-First tasks during your peak energy hours (usually 9–11 AM).</div>}
+        {dueWeek.length > 2 && <div style={{ fontSize: 13, marginBottom: 6 }}>• You have {dueWeek.length} items due this week. Block 2-hour focus sessions in your calendar now.</div>}
+        <div style={{ fontSize: 13, marginBottom: 6 }}>• Use commute time for planning — review your milestones and mentally prioritise.</div>
+        <div style={{ fontSize: 13 }}>• Protect your lunch break — a real break improves afternoon focus by up to 30%.</div>
+      </div>
+    </div>
+  );
+}
+
 // ─── EisenhowerView ───────────────────────────────────────────────────────────
 const EQ_STYLES = [
   { key: "q1", label: "🔴 Do First",  desc: "Urgent + Important",        hdr: "#ef4444", border: "#fca5a5" },
@@ -2863,8 +3123,15 @@ function AiProjectModal({ isOpen, onClose, onConfirm, pillars }) {
 
   const handleConfirm = async () => {
     if (!preview) return;
-    await onConfirm(preview);
-    handleClose();
+    setStep("loading");
+    try {
+      await onConfirm(preview);
+      handleClose();
+    } catch (e) {
+      // Keep preview visible so the user doesn't lose their results
+      setErrorMsg(e.message || "Creation failed. Your plan is preserved — tap 'Create Project' to retry.");
+      setStep("preview");
+    }
   };
 
   if (!isOpen) return null;
@@ -2980,8 +3247,11 @@ function AiProjectModal({ isOpen, onClose, onConfirm, pillars }) {
                   </div>
                 </div>
 
+                {errorMsg && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-2 text-rose-600 text-xs font-medium">{errorMsg}</div>
+                )}
                 <div className="flex gap-3 pt-2">
-                  <button onClick={() => setStep("input")} className="flex-1 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">Edit Prompt</button>
+                  <button onClick={() => { setStep("input"); setErrorMsg(""); }} className="flex-1 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">Edit Prompt</button>
                   <button onClick={handleConfirm}
                     className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-sm shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all">
                     <CheckCircle2 className="w-4 h-4" /> Create Project
@@ -3078,14 +3348,27 @@ export default function App() {
 
   const handleCreatePillar = async (data) => {
     const newPillar = { ...data, owner_id: user.id, progress_override: data.progress_override ? parseInt(data.progress_override) : null };
-    if (demoMode) { setPillars([...pillars, { ...newPillar, id: `p${Date.now()}` }]); }
-    else if (supabase) { await supabase.from("pillars").insert([newPillar]); }
+    if (demoMode) {
+      setPillars(prev => [...prev, { ...newPillar, id: `p${Date.now()}` }]);
+    } else if (supabase) {
+      const { data: inserted, error } = await supabase.from("pillars").insert([newPillar]).select().single();
+      if (error) { alert(`Could not create project: ${error.message}`); return; }
+      if (inserted) setPillars(prev => [...prev, inserted]);
+    }
+    setShowPillarForm(false);
+    setEditingPillar(null);
   };
 
   const handleUpdatePillar = async (data) => {
     const updated = { ...data, progress_override: data.progress_override ? parseInt(data.progress_override) : null };
-    if (demoMode) { setPillars(pillars.map(p => p.id === editingPillar.id ? { ...p, ...updated } : p)); }
-    else if (supabase) { await supabase.from("pillars").update(updated).eq("id", editingPillar.id); }
+    if (demoMode) {
+      setPillars(pillars.map(p => p.id === editingPillar.id ? { ...p, ...updated } : p));
+    } else if (supabase) {
+      const { data: result, error } = await supabase.from("pillars").update(updated).eq("id", editingPillar.id).select().single();
+      if (error) { alert(`Could not update project: ${error.message}`); return; }
+      if (result) setPillars(prev => prev.map(p => p.id === result.id ? result : p));
+    }
+    setShowPillarForm(false);
     setEditingPillar(null);
   };
 
@@ -3119,7 +3402,7 @@ export default function App() {
       } else if (supabase) {
         const { data: inserted, error } = await supabase.from("pillars").insert([{
           name: pillarData.name, description: pillarData.description || "", icon: pillarData.icon || "🎯",
-          color: pillarData.color || "#8b5cf6", owner_id: user?.id, status: "On Track",
+          owner_id: user?.id, status: "On Track",
         }]).select().single();
         if (error) { alert(`Could not create project: ${error.message}`); return; }
         newPillarId = inserted.id;
@@ -3384,6 +3667,8 @@ export default function App() {
                 { id: "cards", label: "Cards" },
                 { id: "board", label: "Board" },
                 { id: "matrix", label: "Matrix" },
+                { id: "analysis", label: "Analysis" },
+                { id: "myday", label: "My Day" },
                 { id: "gantt", label: "Time" },
                 ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
               ].map(v => (
@@ -3476,6 +3761,8 @@ export default function App() {
                   { id: "cards", label: "Cards" },
                   { id: "board", label: "Board" },
                   { id: "matrix", label: "⊞ Matrix" },
+                  { id: "analysis", label: "📊 Analysis" },
+                  { id: "myday", label: "🌅 My Day" },
                   { id: "gantt", label: "Timeline" },
                   ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
                 ].map(v => (
@@ -3509,6 +3796,10 @@ export default function App() {
             onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
             onCycleMilestoneStatus={handleCycleMilestoneStatus}
           />
+        ) : viewMode === "analysis" ? (
+          <AnalysisView pillars={pillars} milestones={milestones} profiles={profiles} />
+        ) : viewMode === "myday" ? (
+          <MyDayView milestones={milestones} pillars={pillars} />
         ) : filteredPillars.length === 0 ? (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20">
             <Sparkles className="w-20 h-20 text-purple-300 mx-auto mb-4" />
@@ -3542,6 +3833,10 @@ export default function App() {
             onCycleMilestoneStatus={handleCycleMilestoneStatus}
             onAddMilestone={(pillarId) => { setEditingMilestone({ pillar_id: pillarId, __isNew: true }); setShowMilestoneForm(true); }}
           />
+        ) : viewMode === "analysis" ? (
+          <AnalysisView pillars={pillars} milestones={milestones} profiles={profiles} />
+        ) : viewMode === "myday" ? (
+          <MyDayView milestones={milestones} pillars={pillars} />
         ) : viewMode === "gantt" ? (
           <GanttView pillars={filteredPillars} milestones={milestones} />
         ) : viewMode === "admin" && isAdmin ? (
