@@ -3605,4 +3605,11 @@ export default function App() {
       </AnimatePresence>
 
       {demoMode && (
-        <motion.div initial={{ y: -50 }} animate={{ y: 0 }} className="fixed top-24 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-6 py-3 rounded-full text-sm
+        <motion.div initial={{ y: -50 }} animate={{ y: 0 }} className="fixed top-24 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 shadow-2xl z-50">
+          <Flag className="w-4 h-4" />
+          Demo Mode
+        </motion.div>
+      )}
+    </div>
+  );
+}
