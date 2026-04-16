@@ -455,15 +455,52 @@ body { min-height:100vh; transition: background 0.4s, color 0.4s; }
 
 @media (max-width: 900px) {
   .sidebar { display: none; }
-  .main-content { margin-left: 0; padding-bottom: 80px; }
+  .main-content { margin-left: 0 !important; padding: 12px; padding-bottom: 80px; }
   .mobile-nav { display: block; }
   .grid-4, .grid-5 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
+  .page-header { padding: 20px 16px; border-radius: 12px; margin-bottom: 16px; }
+  .page-header h1 { font-size: 22px; }
+  .page-header p { font-size: 12px; }
+  .card { padding: 16px; border-radius: 12px; }
+  .stat-card { padding: 14px 12px; gap: 10px; }
+  .stat-value { font-size: 22px; }
+  .stat-icon { width: 40px; height: 40px; border-radius: 10px; font-size: 18px; }
+  .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab-item { white-space: nowrap; font-size: 12px; padding: 6px 12px; }
+  .section-gap { margin-bottom: 16px; }
+  .data-table { font-size: 12px; }
+  .data-table th, .data-table td { padding: 10px 8px; }
+  .theme-panel { width: 100%; right: -100%; }
+  .theme-panel.open { right: 0; }
+  .activity-tile { padding: 14px; }
+  .activity-tile .stat-value { font-size: 20px; }
+  .gantt-label { width: 100px; font-size: 11px; }
+  /* Mobile: stack pillar overview items vertically */
+  .mobile-pillar-row { flex-direction: column !important; gap: 8px !important; align-items: flex-start !important; }
+  .mobile-pillar-row .circular-progress { align-self: center; }
+  /* Mobile: hide desktop-only elements */
+  .desktop-only { display: none !important; }
+  /* Mobile: make the customize button smaller */
+  .btn-accent { padding: 6px 12px; font-size: 12px; }
 }
 @media (max-width: 600px) {
   .grid-4, .grid-5 { grid-template-columns: 1fr; }
-  .page-header h1 { font-size: 22px; }
+  .page-header h1 { font-size: 20px; }
+  .main-content { padding: 8px; padding-bottom: 80px; }
+  .card { padding: 12px; }
+  .stat-card { flex-direction: column; text-align: center; padding: 12px 8px; }
+  .stat-icon { width: 36px; height: 36px; }
+  .stat-value { font-size: 20px; }
+  .stat-label { font-size: 11px; }
+  /* Mobile: full-width detail panel */
+  .mobile-detail-panel { width: 100% !important; }
+}
+/* Mobile-specific: swipeable card style */
+@media (max-width: 900px) {
+  .mobile-card-stack { display: flex; flex-direction: column; gap: 12px; }
+  .mobile-card-stack .card { margin-bottom: 0; }
 }
 
 /* ===== SCROLLBAR ===== */
@@ -553,6 +590,17 @@ const Icons = {
   Users: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
   Star: () => <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
 };
+
+// ===== MOBILE DETECTION HOOK =====
+function useIsMobile(breakpoint = 900) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= breakpoint);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [breakpoint]);
+  return isMobile;
+}
 
 // ===== THEME CONTEXT =====
 const ThemeContext = createContext();
@@ -650,7 +698,10 @@ function ProgressBar({ value, max=100, color }) {
 }
 
 // ===== DASHBOARD PAGE =====
-function DashboardPage() {
+function DashboardPage({ pillars, milestones }) {
+  pillars = pillars || PILLARS;
+  milestones = milestones || MILESTONES_DATA;
+  const isMobile = useIsMobile();
   const today = new Date();
   const greeting = today.getHours() < 12 ? 'Good Morning' : today.getHours() < 18 ? 'Good Afternoon' : 'Good Evening';
 
@@ -661,8 +712,8 @@ function DashboardPage() {
         <p>{today.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' })}</p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid-5 section-gap">
+      {/* Quick Stats - on mobile show condensed 2-column grid */}
+      <div className={isMobile ? 'grid-2 section-gap' : 'grid-5 section-gap'}>
         <div className="stat-card">
           <div className="stat-icon" style={{ background:'rgba(34,197,94,0.15)' }}>🕌</div>
           <div><div className="stat-value" style={{ color:'var(--prayer-color)' }}>{ACTIVITIES.prayers.done}/{ACTIVITIES.prayers.total}</div><div className="stat-label">Prayers Today</div></div>
@@ -681,7 +732,7 @@ function DashboardPage() {
         </div>
         <div className="stat-card">
           <div className="stat-icon" style={{ background:'rgba(168,85,247,0.15)' }}>📋</div>
-          <div><div className="stat-value" style={{ color:'var(--project-color)' }}>{PILLARS.length}</div><div className="stat-label">Active Pillars</div></div>
+          <div><div className="stat-value" style={{ color:'var(--project-color)' }}>{pillars.length}</div><div className="stat-label">Active Pillars</div></div>
         </div>
       </div>
 
@@ -734,37 +785,77 @@ function DashboardPage() {
       <div className="card section-gap">
         <div className="card-title" style={{ marginBottom:20 }}>🏗️ Project Pillars Overview</div>
         <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-          {PILLARS.map(p => (
-            <div key={p.id} style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 16px', background:'var(--bg-input)', borderRadius:'var(--radius-sm)' }}>
-              <CircularProgress value={p.progress} max={100} size={56} strokeWidth={5} color={
-                p.category === 'project' ? 'var(--accent-1)' :
-                p.category === 'paper' ? 'var(--accent-2)' :
-                'var(--accent-3)'
-              }/>
-              <div style={{ flex:1 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                  <span style={{ fontWeight:600, fontSize:15 }}>{p.title}</span>
-                  <span className={`badge badge-${p.category === 'project' ? 'project' : p.category === 'thesis' ? 'sleep' : 'quran'}`}>{p.category}</span>
-                  <span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'done' ? 'done' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>{p.status.replace('_',' ')}</span>
+          {pillars.map(p => {
+            const ms = milestones.filter(m => m.pillarId === p.id);
+            const doneCount = ms.filter(m => m.status === 'done').length;
+            const totalCount = ms.length;
+            const prog = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+            return (
+              <div key={p.id} style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 16px', background:'var(--bg-input)', borderRadius:'var(--radius-sm)' }}>
+                <CircularProgress value={prog} max={100} size={56} strokeWidth={5} color={
+                  p.category === 'project' ? 'var(--accent-1)' :
+                  p.category === 'paper' ? 'var(--accent-2)' :
+                  'var(--accent-3)'
+                }/>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' }}>
+                    <span style={{ fontWeight:600, fontSize:15 }}>{p.title}</span>
+                    <span className={`badge badge-${p.category === 'project' ? 'project' : p.category === 'thesis' ? 'sleep' : 'quran'}`}>{p.category}</span>
+                    <span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'done' ? 'done' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>{p.status.replace('_',' ')}</span>
+                  </div>
+                  <div style={{ fontSize:13, color:'var(--text-muted)' }}>{doneCount}/{totalCount} milestones · Due {p.dueDate}</div>
                 </div>
-                <div style={{ fontSize:13, color:'var(--text-muted)' }}>{p.done}/{p.milestones} milestones · Due {p.dueDate}</div>
+                <div style={{ textAlign:'right' }}>
+                  <div style={{ fontSize:22, fontWeight:800, color:'var(--accent-1)' }}>{prog}%</div>
+                </div>
               </div>
-              <div style={{ textAlign:'right' }}>
-                <div style={{ fontSize:22, fontWeight:800, color:'var(--accent-1)' }}>{p.progress}%</div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
+// ===== FORM MODAL COMPONENT =====
+function Modal({ open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:400, display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.6)' }} onClick={onClose}/>
+      <div style={{ background:'var(--bg-secondary)', border:'1px solid var(--border-color)', borderRadius:'var(--radius)', padding:32, width:480, maxWidth:'calc(100vw - 32px)', maxHeight:'80vh', overflow:'auto', position:'relative', zIndex:1 }}>
+        <div className="flex items-center justify-between" style={{ marginBottom:24 }}>
+          <h2 style={{ fontSize:20, fontWeight:700 }}>{title}</h2>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-secondary)', cursor:'pointer' }}><Icons.X/></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FormField({ label, children }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:13, fontWeight:600, color:'var(--text-secondary)', marginBottom:6 }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = { width:'100%', padding:'10px 14px', background:'var(--bg-input)', border:'1px solid var(--border-color)', borderRadius:'var(--radius-sm)', color:'var(--text-primary)', fontSize:14, fontFamily:'inherit', outline:'none' };
+const selectStyle = { ...inputStyle, cursor:'pointer' };
+
 // ===== PROJECT PILLARS PAGE =====
-function PillarsPage() {
+function PillarsPage({ pillars, setPillars, milestones, setMilestones }) {
+  const isMobile = useIsMobile();
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState('cards');
-  const [milestones, setMilestones] = useState(MILESTONES_DATA);
+  const [showAddPillar, setShowAddPillar] = useState(false);
+  const [showAddMilestone, setShowAddMilestone] = useState(false);
+  const [newPillar, setNewPillar] = useState({ title:'', description:'', category:'project', priority:'medium', dueDate:'' });
+  const [newMilestone, setNewMilestone] = useState({ name:'', dueDate:'', status:'not_started' });
+
   const STATUS_CYCLE = ['not_started','in_progress','done','blocked'];
   const cycleMilestoneStatus = (id) => {
     setMilestones(prev => prev.map(m => {
@@ -772,6 +863,57 @@ function PillarsPage() {
       const idx = STATUS_CYCLE.indexOf(m.status);
       return { ...m, status: STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length] };
     }));
+  };
+
+  const addPillar = () => {
+    if (!newPillar.title.trim()) return;
+    const id = Math.max(0, ...pillars.map(p=>p.id)) + 1;
+    setPillars(prev => [...prev, {
+      id, title:newPillar.title, description:newPillar.description,
+      category:newPillar.category, status:'not_started', progress:0,
+      priority:newPillar.priority, milestones:0, done:0,
+      dueDate:newPillar.dueDate || 'TBD',
+    }]);
+    setNewPillar({ title:'', description:'', category:'project', priority:'medium', dueDate:'' });
+    setShowAddPillar(false);
+  };
+
+  const addMilestone = () => {
+    if (!newMilestone.name.trim() || !selected) return;
+    const id = Math.max(0, ...milestones.map(m=>m.id)) + 1;
+    setMilestones(prev => [...prev, {
+      id, pillarId:selected.id, name:newMilestone.name,
+      status:newMilestone.status, dueDate:newMilestone.dueDate || 'TBD',
+    }]);
+    setPillars(prev => prev.map(p => p.id === selected.id ? { ...p, milestones: p.milestones + 1 } : p));
+    setNewMilestone({ name:'', dueDate:'', status:'not_started' });
+    setShowAddMilestone(false);
+  };
+
+  const deletePillar = (id) => {
+    setPillars(prev => prev.filter(p => p.id !== id));
+    setMilestones(prev => prev.filter(m => m.pillarId !== id));
+    setSelected(null);
+  };
+
+  const deleteMilestone = (id) => {
+    const ms = milestones.find(m => m.id === id);
+    if (ms) {
+      setMilestones(prev => prev.filter(m => m.id !== id));
+      setPillars(prev => prev.map(p => p.id === ms.pillarId ? {
+        ...p, milestones: Math.max(0, p.milestones - 1),
+        done: ms.status === 'done' ? Math.max(0, p.done - 1) : p.done,
+      } : p));
+    }
+  };
+
+  // Recompute pillar progress from milestones
+  const getPillarStats = (pillarId) => {
+    const ms = milestones.filter(m => m.pillarId === pillarId);
+    const total = ms.length;
+    const done = ms.filter(m => m.status === 'done').length;
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, done, progress };
   };
 
   return (
@@ -789,35 +931,50 @@ function PillarsPage() {
             </div>
           ))}
         </div>
-        <button className="btn-accent">+ New Pillar</button>
+        <button className="btn-accent" onClick={() => setShowAddPillar(true)}>+ New Pillar</button>
       </div>
 
+      {/* Add Pillar Modal */}
+      <Modal open={showAddPillar} onClose={() => setShowAddPillar(false)} title="New Pillar">
+        <FormField label="Title"><input style={inputStyle} value={newPillar.title} onChange={e => setNewPillar({...newPillar, title:e.target.value})} placeholder="e.g. Research Paper #3"/></FormField>
+        <FormField label="Description"><textarea style={{...inputStyle, minHeight:80, resize:'vertical'}} value={newPillar.description} onChange={e => setNewPillar({...newPillar, description:e.target.value})} placeholder="Brief description..."/></FormField>
+        <div className="grid-2">
+          <FormField label="Category"><select style={selectStyle} value={newPillar.category} onChange={e => setNewPillar({...newPillar, category:e.target.value})}><option value="project">Project</option><option value="paper">Paper</option><option value="thesis">Thesis</option><option value="other">Other</option></select></FormField>
+          <FormField label="Priority"><select style={selectStyle} value={newPillar.priority} onChange={e => setNewPillar({...newPillar, priority:e.target.value})}><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></FormField>
+        </div>
+        <FormField label="Due Date"><input type="date" style={inputStyle} value={newPillar.dueDate} onChange={e => setNewPillar({...newPillar, dueDate:e.target.value})}/></FormField>
+        <button className="btn-accent" style={{ width:'100%', marginTop:8 }} onClick={addPillar}>Create Pillar</button>
+      </Modal>
+
       {view === 'cards' && (
-        <div className="grid-3 section-gap">
-          {PILLARS.map(p => (
-            <div key={p.id} className="card" style={{ cursor:'pointer' }} onClick={() => setSelected(p)}>
-              <div className="flex items-center justify-between" style={{ marginBottom:16 }}>
-                <span className={`badge badge-${p.category === 'project' ? 'project' : p.category === 'thesis' ? 'sleep' : 'quran'}`}>
-                  {p.category}
-                </span>
-                <span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'done' ? 'done' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>
-                  {p.status.replace('_',' ')}
-                </span>
+        <div className={isMobile ? 'mobile-card-stack section-gap' : 'grid-3 section-gap'}>
+          {pillars.map(p => {
+            const stats = getPillarStats(p.id);
+            return (
+              <div key={p.id} className="card" style={{ cursor:'pointer' }} onClick={() => setSelected(p)}>
+                <div className="flex items-center justify-between" style={{ marginBottom:16 }}>
+                  <span className={`badge badge-${p.category === 'project' ? 'project' : p.category === 'thesis' ? 'sleep' : 'quran'}`}>
+                    {p.category}
+                  </span>
+                  <span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'done' ? 'done' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>
+                    {p.status.replace('_',' ')}
+                  </span>
+                </div>
+                <h3 style={{ fontSize:18, fontWeight:700, marginBottom:6 }}>{p.title}</h3>
+                <p style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:16 }}>{p.description}</p>
+                <ProgressBar value={stats.progress}/>
+                <div className="flex items-center justify-between" style={{ marginTop:12 }}>
+                  <span className="text-sm text-muted">{stats.done}/{stats.total} milestones</span>
+                  <span style={{ fontSize:18, fontWeight:800, color:'var(--accent-1)' }}>{stats.progress}%</span>
+                </div>
+                <div style={{ marginTop:12, fontSize:12, color:'var(--text-muted)' }}>Due: {p.dueDate}</div>
               </div>
-              <h3 style={{ fontSize:18, fontWeight:700, marginBottom:6 }}>{p.title}</h3>
-              <p style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:16 }}>{p.description}</p>
-              <ProgressBar value={p.progress}/>
-              <div className="flex items-center justify-between" style={{ marginTop:12 }}>
-                <span className="text-sm text-muted">{p.done}/{p.milestones} milestones</span>
-                <span style={{ fontSize:18, fontWeight:800, color:'var(--accent-1)' }}>{p.progress}%</span>
-              </div>
-              <div style={{ marginTop:12, fontSize:12, color:'var(--text-muted)' }}>Due: {p.dueDate}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {view === 'table' && (
+      {view === 'table' && !isMobile && (
         <div className="card">
           <table className="data-table">
             <thead>
@@ -826,19 +983,47 @@ function PillarsPage() {
               </tr>
             </thead>
             <tbody>
-              {PILLARS.map(p => (
-                <tr key={p.id} style={{ cursor:'pointer' }} onClick={() => setSelected(p)}>
-                  <td style={{ fontWeight:600 }}>{p.title}</td>
-                  <td><span className={`badge badge-${p.category === 'project' ? 'project' : 'quran'}`}>{p.category}</span></td>
-                  <td><span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>{p.status.replace('_',' ')}</span></td>
-                  <td><div style={{ display:'flex', alignItems:'center', gap:8 }}><ProgressBar value={p.progress}/><span className="text-sm font-bold">{p.progress}%</span></div></td>
-                  <td>{p.done}/{p.milestones}</td>
-                  <td style={{ color:'var(--text-secondary)' }}>{p.dueDate}</td>
-                  <td><span className={`badge ${p.priority === 'high' ? 'badge-blocked' : 'badge-progress'}`}>{p.priority}</span></td>
-                </tr>
-              ))}
+              {pillars.map(p => {
+                const stats = getPillarStats(p.id);
+                return (
+                  <tr key={p.id} style={{ cursor:'pointer' }} onClick={() => setSelected(p)}>
+                    <td style={{ fontWeight:600 }}>{p.title}</td>
+                    <td><span className={`badge badge-${p.category === 'project' ? 'project' : 'quran'}`}>{p.category}</span></td>
+                    <td><span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'done' ? 'done' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>{p.status.replace('_',' ')}</span></td>
+                    <td><div style={{ display:'flex', alignItems:'center', gap:8 }}><ProgressBar value={stats.progress}/><span className="text-sm font-bold">{stats.progress}%</span></div></td>
+                    <td>{stats.done}/{stats.total}</td>
+                    <td style={{ color:'var(--text-secondary)' }}>{p.dueDate}</td>
+                    <td><span className={`badge ${p.priority === 'high' ? 'badge-blocked' : 'badge-progress'}`}>{p.priority}</span></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+      {view === 'table' && isMobile && (
+        <div className="mobile-card-stack section-gap">
+          {pillars.map(p => {
+            const stats = getPillarStats(p.id);
+            return (
+              <div key={p.id} className="card" style={{ cursor:'pointer' }} onClick={() => setSelected(p)}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                  <span style={{ fontWeight:700, fontSize:16 }}>{p.title}</span>
+                  <span className={`badge ${p.priority === 'high' ? 'badge-blocked' : 'badge-progress'}`}>{p.priority}</span>
+                </div>
+                <div style={{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' }}>
+                  <span className={`badge badge-${p.category === 'project' ? 'project' : 'quran'}`}>{p.category}</span>
+                  <span className={`badge badge-${p.status === 'in_progress' ? 'progress' : p.status === 'done' ? 'done' : p.status === 'blocked' ? 'blocked' : 'not-started'}`}>{p.status.replace('_',' ')}</span>
+                </div>
+                <ProgressBar value={stats.progress}/>
+                <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, fontSize:13, color:'var(--text-secondary)' }}>
+                  <span>{stats.done}/{stats.total} milestones</span>
+                  <span style={{ fontWeight:700, color:'var(--accent-1)' }}>{stats.progress}%</span>
+                </div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:4 }}>Due: {p.dueDate}</div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -848,9 +1033,10 @@ function PillarsPage() {
           <div style={{ fontSize:12, color:'var(--text-muted)', display:'flex', justifyContent:'space-between', marginBottom:16, padding:'0 160px 0 0' }}>
             {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'].map(m => <span key={m}>{m}</span>)}
           </div>
-          {PILLARS.map(p => {
-            const start = Math.random() * 30 + 5;
-            const width = p.progress * 0.7 + 10;
+          {pillars.map((p, idx) => {
+            const stats = getPillarStats(p.id);
+            const start = (idx * 12 + 5) % 40;
+            const width = Math.max(stats.progress * 0.7 + 10, 15);
             return (
               <div key={p.id} className="gantt-row">
                 <div className="gantt-label">{p.title}</div>
@@ -866,22 +1052,41 @@ function PillarsPage() {
         </div>
       )}
 
+      {/* Add Milestone Modal */}
+      <Modal open={showAddMilestone} onClose={() => setShowAddMilestone(false)} title="New Milestone">
+        <FormField label="Milestone Name"><input style={inputStyle} value={newMilestone.name} onChange={e => setNewMilestone({...newMilestone, name:e.target.value})} placeholder="e.g. Literature Review"/></FormField>
+        <div className="grid-2">
+          <FormField label="Due Date"><input type="date" style={inputStyle} value={newMilestone.dueDate} onChange={e => setNewMilestone({...newMilestone, dueDate:e.target.value})}/></FormField>
+          <FormField label="Status"><select style={selectStyle} value={newMilestone.status} onChange={e => setNewMilestone({...newMilestone, status:e.target.value})}><option value="not_started">Not Started</option><option value="in_progress">In Progress</option><option value="done">Done</option><option value="blocked">Blocked</option></select></FormField>
+        </div>
+        <button className="btn-accent" style={{ width:'100%', marginTop:8 }} onClick={addMilestone}>Add Milestone</button>
+      </Modal>
+
       {/* Detail Panel */}
       {selected && (
         <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', justifyContent:'flex-end' }}>
           <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.5)' }} onClick={() => setSelected(null)}/>
-          <div style={{ width:480, background:'var(--bg-secondary)', borderLeft:'1px solid var(--border-color)', position:'relative', overflow:'auto', padding:32 }}>
+          <div className="mobile-detail-panel" style={{ width:480, maxWidth:'100%', background:'var(--bg-secondary)', borderLeft:'1px solid var(--border-color)', position:'relative', overflow:'auto', padding:32 }}>
             <div className="flex items-center justify-between" style={{ marginBottom:24 }}>
               <h2 style={{ fontSize:22, fontWeight:700 }}>{selected.title}</h2>
-              <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', color:'var(--text-secondary)', cursor:'pointer', padding:4 }}><Icons.X/></button>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <button onClick={() => { deletePillar(selected.id); }} style={{ background:'rgba(239,68,68,0.15)', border:'none', color:'#ef4444', cursor:'pointer', padding:'6px 12px', borderRadius:'var(--radius-sm)', fontSize:12, fontWeight:600 }}>Delete Pillar</button>
+                <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', color:'var(--text-secondary)', cursor:'pointer', padding:4 }}><Icons.X/></button>
+              </div>
             </div>
             <p style={{ color:'var(--text-secondary)', marginBottom:24 }}>{selected.description}</p>
-            <CircularProgress value={selected.progress} max={100} size={100} strokeWidth={8}/>
+            {(() => { const s = getPillarStats(selected.id); return <CircularProgress value={s.progress} max={100} size={100} strokeWidth={8}/>; })()}
             <div style={{ marginTop:24 }}>
-              <div className="card-title">Milestones</div>
+              <div className="flex items-center justify-between" style={{ marginBottom:12 }}>
+                <div className="card-title" style={{ marginBottom:0 }}>Milestones</div>
+                <button className="btn-accent" style={{ padding:'6px 14px', fontSize:12 }} onClick={() => setShowAddMilestone(true)}>+ Add Milestone</button>
+              </div>
+              {milestones.filter(m => m.pillarId === selected.id).length === 0 && (
+                <div style={{ padding:24, textAlign:'center', color:'var(--text-muted)', fontSize:14 }}>No milestones yet. Click "+ Add Milestone" to create one.</div>
+              )}
               {milestones.filter(m => m.pillarId === selected.id).map(m => (
                 <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border-color)' }}>
-                  <div onClick={() => cycleMilestoneStatus(m.id)} style={{ width:28, height:28, borderRadius:6, background: m.status === 'done' ? 'rgba(34,197,94,0.2)' : m.status === 'in_progress' ? 'rgba(59,130,246,0.2)' : m.status === 'blocked' ? 'rgba(239,68,68,0.2)' : 'var(--bg-input)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color: m.status === 'done' ? '#22c55e' : m.status === 'in_progress' ? '#3b82f6' : m.status === 'blocked' ? '#ef4444' : 'var(--text-muted)', cursor:'pointer', transition:'all 0.2s', border:'2px solid transparent', flexShrink:0 }} title="Click to change status">
+                  <div onClick={() => cycleMilestoneStatus(m.id)} style={{ width:28, height:28, borderRadius:6, background: m.status === 'done' ? 'rgba(34,197,94,0.2)' : m.status === 'in_progress' ? 'rgba(59,130,246,0.2)' : m.status === 'blocked' ? 'rgba(239,68,68,0.2)' : 'var(--bg-input)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color: m.status === 'done' ? '#22c55e' : m.status === 'in_progress' ? '#3b82f6' : m.status === 'blocked' ? '#ef4444' : 'var(--text-muted)', cursor:'pointer', transition:'all 0.2s', border:'2px solid transparent', flexShrink:0 }} title="Click to cycle status">
                     {m.status === 'done' ? '✓' : m.status === 'in_progress' ? '◐' : m.status === 'blocked' ? '✗' : '○'}
                   </div>
                   <div style={{ flex:1 }}>
@@ -891,6 +1096,7 @@ function PillarsPage() {
                   <span onClick={() => cycleMilestoneStatus(m.id)} style={{ cursor:'pointer' }} className={`badge badge-${m.status === 'done' ? 'done' : m.status === 'in_progress' ? 'progress' : m.status === 'blocked' ? 'blocked' : 'not-started'}`}>
                     {m.status.replace('_',' ')}
                   </span>
+                  <button onClick={(e) => { e.stopPropagation(); deleteMilestone(m.id); }} style={{ background:'none', border:'none', color:'#ef4444', cursor:'pointer', fontSize:16, padding:4, opacity:0.6 }} title="Delete milestone">✕</button>
                 </div>
               ))}
             </div>
@@ -1246,7 +1452,9 @@ function CSSLineChart({ data, lines, labelKey }) {
 }
 
 // ===== ANALYTICS PAGE =====
-function AnalyticsPage() {
+function AnalyticsPage({ pillars: pillarsProp, milestones: milestonesProp }) {
+  const pillarsData = pillarsProp || PILLARS;
+  const milestonesData = milestonesProp || MILESTONES_DATA;
   const monthlyProgress = [
     { month:'Jan', tasks:12, completed:10 },
     { month:'Feb', tasks:15, completed:13 },
@@ -1330,19 +1538,24 @@ function AnalyticsPage() {
         <div className="card">
           <div className="card-title">Pillar Progress</div>
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-            {PILLARS.map(p => (
-              <div key={p.id}>
-                <div className="flex items-center justify-between" style={{ marginBottom:6 }}>
-                  <span style={{ fontSize:14, fontWeight:500 }}>{p.title}</span>
-                  <span style={{ fontSize:14, fontWeight:700, color:'var(--accent-1)' }}>{p.progress}%</span>
+            {pillarsData.map(p => {
+              const ms = milestonesData.filter(m => m.pillarId === p.id);
+              const doneCount = ms.filter(m => m.status === 'done').length;
+              const prog = ms.length > 0 ? Math.round((doneCount / ms.length) * 100) : 0;
+              return (
+                <div key={p.id}>
+                  <div className="flex items-center justify-between" style={{ marginBottom:6 }}>
+                    <span style={{ fontSize:14, fontWeight:500 }}>{p.title}</span>
+                    <span style={{ fontSize:14, fontWeight:700, color:'var(--accent-1)' }}>{prog}%</span>
+                  </div>
+                  <ProgressBar value={prog} color={
+                    prog >= 60 ? '#22c55e' :
+                    prog >= 30 ? '#f97316' :
+                    '#ef4444'
+                  }/>
                 </div>
-                <ProgressBar value={p.progress} color={
-                  p.progress >= 60 ? '#22c55e' :
-                  p.progress >= 30 ? '#f97316' :
-                  '#ef4444'
-                }/>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1486,6 +1699,8 @@ function App() {
   const [theme, setTheme] = useState(localStorage.getItem('mariam-theme') || 'aurora');
   const [layout, setLayout] = useState(localStorage.getItem('mariam-layout') || 'default');
   const [themeOpen, setThemeOpen] = useState(false);
+  const [pillars, setPillars] = useState(PILLARS);
+  const [milestones, setMilestones] = useState(MILESTONES_DATA);
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme);
@@ -1498,11 +1713,11 @@ function App() {
   }, [layout]);
 
   const pages = {
-    dashboard: <DashboardPage/>,
-    pillars: <PillarsPage/>,
+    dashboard: <DashboardPage pillars={pillars} milestones={milestones}/>,
+    pillars: <PillarsPage pillars={pillars} setPillars={setPillars} milestones={milestones} setMilestones={setMilestones}/>,
     calendar: <CalendarPage/>,
     activities: <ActivitiesPage/>,
-    analytics: <AnalyticsPage/>,
+    analytics: <AnalyticsPage pillars={pillars} milestones={milestones}/>,
   };
 
   return (
