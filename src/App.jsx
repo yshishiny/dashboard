@@ -3504,7 +3504,15 @@ export default function App() {
 
       {/* Pillars */}
       <div className={viewMode === "cards" ? "px-4 py-6 space-y-4 pb-24" : "py-6 pb-24"}>
-        {filteredPillars.length === 0 ? (
+        {viewMode === "matrix" ? (
+          <EisenhowerView
+            milestones={milestones}
+            pillars={pillars}
+            profiles={profiles}
+            onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
+            onCycleMilestoneStatus={handleCycleMilestoneStatus}
+          />
+        ) : filteredPillars.length === 0 ? (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20">
             <Sparkles className="w-20 h-20 text-purple-300 mx-auto mb-4" />
             <p className="text-slate-600 font-bold text-lg">No pillars found</p>
@@ -3536,14 +3544,6 @@ export default function App() {
             onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
             onCycleMilestoneStatus={handleCycleMilestoneStatus}
             onAddMilestone={(pillarId) => { setEditingMilestone({ pillar_id: pillarId, __isNew: true }); setShowMilestoneForm(true); }}
-          />
-        ) : viewMode === "matrix" ? (
-          <EisenhowerView
-            milestones={milestones}
-            pillars={filteredPillars}
-            profiles={profiles}
-            onEditMilestone={(m) => { setEditingMilestone(m); setShowMilestoneForm(true); }}
-            onCycleMilestoneStatus={handleCycleMilestoneStatus}
           />
         ) : viewMode === "gantt" ? (
           <GanttView pillars={filteredPillars} milestones={milestones} />
@@ -3608,11 +3608,4 @@ export default function App() {
       </AnimatePresence>
 
       {demoMode && (
-        <motion.div initial={{ y: -50 }} animate={{ y: 0 }} className="fixed top-24 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 shadow-2xl z-50">
-          <Flag className="w-4 h-4" />
-          Demo Mode
-        </motion.div>
-      )}
-    </div>
-  );
-}
+        <motion.div initial={{ y: -50 }} animate={{ y: 0 }} className="fixed top-24 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-6 py-3 rounded-full text-sm
