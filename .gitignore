@@ -3,7 +3,4 @@ dist
 .env
 .env.local
 
-src/files/portfolio-complete.tar.gz
-src/files.zip
-*.tar.gz
-*.zip
+marium-dashboard/
