@@ -2902,6 +2902,81 @@ function MyDayView({ milestones, pillars }) {
   const [calView, setCalView] = React.useState("month");
   const [cursor, setCursor] = React.useState(new Date());
 
+  // ── Life Vitals state (persisted per date) ──────────────────────────────────
+  const cursorIso = React.useMemo(() => dateToIsoStr(cursor), [cursor]);
+  const defaultVitals = () => ({
+    sleep: 0,
+    meals: { breakfast: false, lunch: false, dinner: false },
+    prayers: { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false },
+    quranPages: 0,
+    morningAdhkar: false,
+    eveningAdhkar: false,
+  });
+  const [vitals, setVitals] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(`vitals_${todayIso}`) || "null") || defaultVitals(); }
+    catch { return defaultVitals(); }
+  });
+  React.useEffect(() => {
+    try { const s = JSON.parse(localStorage.getItem(`vitals_${cursorIso}`) || "null"); setVitals(s || defaultVitals()); }
+    catch { setVitals(defaultVitals()); }
+  }, [cursorIso]);
+  const saveVitals = (v) => { setVitals(v); try { localStorage.setItem(`vitals_${cursorIso}`, JSON.stringify(v)); } catch {} };
+  const toggleMeal    = (k) => saveVitals({ ...vitals, meals:    { ...vitals.meals,    [k]: !vitals.meals[k]    } });
+  const togglePrayer  = (k) => saveVitals({ ...vitals, prayers:  { ...vitals.prayers,  [k]: !vitals.prayers[k]  } });
+  const setSleep      = (h) => saveVitals({ ...vitals, sleep: h });
+  const addQuran      = (n) => saveVitals({ ...vitals, quranPages: Math.max(0, vitals.quranPages + n) });
+  const toggleMorning = ()  => saveVitals({ ...vitals, morningAdhkar: !vitals.morningAdhkar });
+  const toggleEvening = ()  => saveVitals({ ...vitals, eveningAdhkar: !vitals.eveningAdhkar });
+
+  const prayersDone  = Object.values(vitals.prayers).filter(Boolean).length;
+  const mealsDone    = Object.values(vitals.meals).filter(Boolean).length;
+  const sleepScore   = Math.min(100, Math.round((vitals.sleep / 8) * 100));
+  const mealScore    = Math.round((mealsDone / 3) * 100);
+  const prayerScore  = Math.round((prayersDone / 5) * 100);
+  const quranScore   = Math.min(100, vitals.quranPages * 20);
+  const adhkarScore  = (vitals.morningAdhkar ? 50 : 0) + (vitals.eveningAdhkar ? 50 : 0);
+  const overallScore = Math.round((sleepScore + mealScore + prayerScore + quranScore + adhkarScore) / 5);
+
+  // ── Vitals Meter sub-component ──────────────────────────────────────────────
+  const VitalMeter = ({ label, icon, score, children }) => (
+    <div style={{ background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", padding: "11px 13px", marginBottom: 9 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+        <div style={{ fontWeight: 700, fontSize: 12, color: "#1e1b4b" }}>{icon} {label}</div>
+        <div style={{ fontWeight: 800, fontSize: 12, color: score >= 80 ? "#16a34a" : score >= 50 ? "#f59e0b" : "#dc2626" }}>{score}%</div>
+      </div>
+      <div style={{ background: "#e2e8f0", borderRadius: 99, height: 7, marginBottom: 9, overflow: "hidden" }}>
+        <div style={{ height: "100%", borderRadius: 99, background: score >= 80 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444", width: `${score}%`, transition: "width 0.4s ease" }} />
+      </div>
+      {children}
+    </div>
+  );
+
+  // ── Suggestion engine ────────────────────────────────────────────────────────
+  const buildSuggestions = (iso) => {
+    const hour   = new Date().getHours();
+    const items  = byDate[iso] || [];
+    const overdue = (milestones || []).filter(m => m.status !== "done" && m.due_date && m.due_date < iso);
+    const doFirst = items.filter(m => m.urgent && m.important && m.status !== "done");
+    const s = [];
+    if (!vitals.morningAdhkar && hour < 12)   s.push({ icon:"🌅", text:"Start your day with morning adhkar — 5–10 min that sets a blessed tone.", p:1 });
+    if (!vitals.prayers.fajr && hour > 5)     s.push({ icon:"🕌", text:"Fajr prayer awaits — begin your day in remembrance of Allah.", p:1 });
+    if (!vitals.prayers.dhuhr && hour > 12)   s.push({ icon:"☀️", text:"Take a short break for Dhuhr — it refreshes the mind midday.", p:2 });
+    if (!vitals.prayers.asr && hour > 15)     s.push({ icon:"🌤️", text:"Asr time — step away from work for a few minutes of prayer.", p:2 });
+    if (!vitals.prayers.maghrib && hour > 17) s.push({ icon:"🌆", text:"Maghrib — a moment to reflect and be grateful for the day.", p:2 });
+    if (!vitals.prayers.isha && hour > 19)    s.push({ icon:"🌙", text:"Complete your day with Isha before winding down.", p:2 });
+    if (!vitals.eveningAdhkar && hour >= 16)  s.push({ icon:"🤲", text:"Evening adhkar (أذكار المساء) — a shield and peace before night.", p:2 });
+    if (vitals.quranPages === 0 && hour > 8)  s.push({ icon:"📖", text:"Even one page of Quran a day builds a beautiful habit. Try after Fajr or Asr.", p:3 });
+    if (vitals.sleep < 6 && vitals.sleep > 0) s.push({ icon:"💤", text:`Only ${vitals.sleep}h sleep logged. Aim for 7–8h — your brain needs it for deep focus.`, p:2 });
+    if (!vitals.meals.breakfast && hour > 9)  s.push({ icon:"🍳", text:"Breakfast fuels morning focus — don't skip it, even something light.", p:2 });
+    if (!vitals.meals.lunch && hour > 13)     s.push({ icon:"🥗", text:"A proper lunch break improves afternoon energy. Step away from the screen.", p:2 });
+    if (doFirst.length > 0)  s.push({ icon:"🔴", text:`${doFirst.length} DO FIRST task${doFirst.length>1?"s":""} due today — tackle the hardest one first while your energy is highest.`, p:1 });
+    if (overdue.length > 0)  s.push({ icon:"⚠️", text:`${overdue.length} overdue milestone${overdue.length>1?"s":""} need attention. Even 30 min of progress counts.`, p:1 });
+    if (items.length > 0 && !overdue.length && !doFirst.length) s.push({ icon:"✅", text:`${items.length} milestone${items.length>1?"s":""} due today — work through them in priority order.`, p:3 });
+    if (overallScore >= 80) s.push({ icon:"🌟", text:"Excellent balance today — spiritual, physical and work pillars all strong. Keep this momentum!", p:4 });
+    else if (overallScore < 30 && iso === todayIso) s.push({ icon:"💪", text:"Today is still yours — completing even one vital makes a difference. Start small.", p:4 });
+    return s.sort((a,b) => a.p - b.p).slice(0, 6);
+  };
+
   const byDate = React.useMemo(() => {
     const map = {};
     (milestones || []).forEach(m => {
@@ -2952,40 +3027,169 @@ function MyDayView({ milestones, pillars }) {
 
   // ── DAY VIEW ────────────────────────────────────────────────────────────────
   const DayView = () => {
-    const iso = dateToIsoStr(cursor);
-    const items = byDate[iso] || [];
+    const iso     = cursorIso;
+    const items   = byDate[iso] || [];
     const isToday = iso === todayIso;
+    const suggestions = buildSuggestions(iso);
+    const PRAYERS = [
+      { key:"fajr",    label:"Fajr",    icon:"🌅" },
+      { key:"dhuhr",   label:"Dhuhr",   icon:"☀️" },
+      { key:"asr",     label:"Asr",     icon:"🌤️" },
+      { key:"maghrib", label:"Maghrib", icon:"🌆" },
+      { key:"isha",    label:"Isha",    icon:"🌙" },
+    ];
     return (
-      <div style={{ background: "#fff", borderRadius: 16, border: "2px solid #e2e8f0", padding: 20 }}>
-        <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <span style={{ display: "inline-block", background: isToday ? "linear-gradient(135deg,#7c3aed,#db2777)" : "#f1f5f9", color: isToday ? "#fff" : "#334155", borderRadius: 99, padding: "8px 24px", fontWeight: 800, fontSize: 17 }}>
+      <div>
+        {/* ── Date header ── */}
+        <div style={{ textAlign:"center", marginBottom:14 }}>
+          <span style={{ display:"inline-block", background: isToday ? "linear-gradient(135deg,#7c3aed,#db2777)" : "#f1f5f9", color: isToday ? "#fff" : "#334155", borderRadius:99, padding:"8px 24px", fontWeight:800, fontSize:17 }}>
             {cursor.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" })}
           </span>
         </div>
-        {items.length === 0 ? (
-          <div style={{ textAlign: "center", color: "#94a3b8", padding: "48px 0", fontSize: 14 }}>🎉 No milestones due on this day</div>
-        ) : (
+
+        {/* ── Overall wellness ring ── */}
+        <div style={{ background:"linear-gradient(135deg,#7c3aed,#0ea5e9)", borderRadius:16, padding:"14px 18px", marginBottom:14, display:"flex", alignItems:"center", gap:16 }}>
+          <div style={{ position:"relative", width:62, height:62, flexShrink:0 }}>
+            <svg width="62" height="62" style={{ transform:"rotate(-90deg)" }}>
+              <circle cx="31" cy="31" r="25" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="7"/>
+              <circle cx="31" cy="31" r="25" fill="none" stroke="#fff" strokeWidth="7"
+                strokeDasharray={`${2*Math.PI*25}`}
+                strokeDashoffset={`${2*Math.PI*25*(1-overallScore/100)}`}
+                strokeLinecap="round" style={{ transition:"stroke-dashoffset 0.5s ease" }}/>
+            </svg>
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:14, color:"#fff" }}>{overallScore}%</div>
+          </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>{items.length} Milestone{items.length !== 1 ? "s" : ""} Due</div>
-            {items.map(m => {
-              const st = getCalStatusStyle(m.status);
-              const p = pillarMap[m.pillar_id];
-              return (
-                <div key={m.id} style={{ background: st.bg, border: `2px solid ${st.border}`, borderRadius: 14, padding: "14px 16px", marginBottom: 10 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: "#1e1b4b", marginBottom: 5 }}>{p?.icon} {m.name}</div>
-                  <div style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span>{p?.name}</span>
-                    <span style={{ fontWeight: 700, color: st.text }}>{(m.status || "").replace(/_/g," ")}</span>
-                    {m.urgent && m.important   && <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 99, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>DO FIRST</span>}
-                    {!m.urgent && m.important  && <span style={{ background: "#dbeafe", color: "#1e40af", borderRadius: 99, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>SCHEDULE</span>}
-                    {m.urgent && !m.important  && <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 99, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>DELEGATE</span>}
-                  </div>
-                  {m.notes ? <div style={{ fontSize: 12, color: "#64748b", marginTop: 8, fontStyle: "italic" }}>{m.notes}</div> : null}
-                </div>
-              );
-            })}
+            <div style={{ color:"#fff", fontWeight:900, fontSize:15, marginBottom:3 }}>Daily Wellness Score</div>
+            <div style={{ color:"rgba(255,255,255,0.85)", fontSize:12 }}>
+              {overallScore>=80 ? "🌟 Excellent — you're thriving today!" :
+               overallScore>=60 ? "💪 Good progress — a few more to go" :
+               overallScore>=40 ? "⚡ Building momentum — keep going" :
+               "🌱 Day is just beginning — every action counts"}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Life Vitals ── */}
+        <div style={{ background:"#fff", borderRadius:16, border:"2px solid #e2e8f0", padding:"15px", marginBottom:14 }}>
+          <div style={{ fontWeight:900, fontSize:14, color:"#0f172a", marginBottom:13 }}>⚡ Life Vitals</div>
+
+          {/* Sleep */}
+          <VitalMeter label="Sleep" icon="💤" score={sleepScore}>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {[0,4,5,6,7,8].map(h => (
+                <button key={h} onClick={()=>setSleep(h)} style={{ padding:"4px 11px", borderRadius:99, border:`1.5px solid ${vitals.sleep===h?"#7c3aed":"#e2e8f0"}`, background:vitals.sleep===h?"#7c3aed":"#f8fafc", color:vitals.sleep===h?"#fff":"#64748b", fontWeight:700, fontSize:11, cursor:"pointer" }}>
+                  {h===0?"—":`${h}h`}
+                </button>
+              ))}
+            </div>
+          </VitalMeter>
+
+          {/* Meals */}
+          <VitalMeter label="Meals" icon="🍽️" score={mealScore}>
+            <div style={{ display:"flex", gap:6 }}>
+              {[{k:"breakfast",l:"🍳 Bkfst"},{k:"lunch",l:"🥗 Lunch"},{k:"dinner",l:"🍽️ Dinner"}].map(({k,l})=>(
+                <button key={k} onClick={()=>toggleMeal(k)} style={{ flex:1, padding:"5px 6px", borderRadius:8, border:`1.5px solid ${vitals.meals[k]?"#22c55e":"#e2e8f0"}`, background:vitals.meals[k]?"#f0fdf4":"#f8fafc", color:vitals.meals[k]?"#16a34a":"#64748b", fontWeight:700, fontSize:10, cursor:"pointer", textAlign:"center" }}>
+                  {vitals.meals[k]?"✓ ":""}{l}
+                </button>
+              ))}
+            </div>
+          </VitalMeter>
+
+          {/* Prayers */}
+          <VitalMeter label="Prayers — 5 daily" icon="🕌" score={prayerScore}>
+            <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+              {PRAYERS.map(({key,label,icon})=>(
+                <button key={key} onClick={()=>togglePrayer(key)} style={{ padding:"5px 9px", borderRadius:8, border:`1.5px solid ${vitals.prayers[key]?"#7c3aed":"#e2e8f0"}`, background:vitals.prayers[key]?"#f5f3ff":"#f8fafc", color:vitals.prayers[key]?"#7c3aed":"#94a3b8", fontWeight:700, fontSize:10, cursor:"pointer" }}>
+                  {vitals.prayers[key]?"✓ ":""}{icon} {label}
+                </button>
+              ))}
+            </div>
+          </VitalMeter>
+
+          {/* Quran */}
+          <VitalMeter label="Quran" icon="📖" score={quranScore}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <button onClick={()=>addQuran(-1)} style={{ width:28, height:28, borderRadius:"50%", border:"1.5px solid #e2e8f0", background:"#f8fafc", cursor:"pointer", fontWeight:700, fontSize:16, color:"#475569", display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+              <div style={{ flex:1, textAlign:"center", fontWeight:800, fontSize:14, color:"#7c3aed" }}>{vitals.quranPages} page{vitals.quranPages!==1?"s":""}</div>
+              <button onClick={()=>addQuran(1)} style={{ width:28, height:28, borderRadius:"50%", border:"none", background:"#7c3aed", cursor:"pointer", fontWeight:700, fontSize:16, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+              <button onClick={()=>addQuran(5)} style={{ padding:"4px 10px", borderRadius:99, border:"1.5px solid #a855f7", background:"#faf5ff", fontWeight:700, fontSize:11, color:"#7c3aed", cursor:"pointer" }}>+5</button>
+            </div>
+          </VitalMeter>
+
+          {/* Morning / Evening Adhkar */}
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={toggleMorning} style={{ flex:1, padding:"11px 8px", borderRadius:12, border:`2px solid ${vitals.morningAdhkar?"#f59e0b":"#e2e8f0"}`, background:vitals.morningAdhkar?"#fffbeb":"#f8fafc", cursor:"pointer", textAlign:"center" }}>
+              <div style={{ fontSize:22, marginBottom:3 }}>🌅</div>
+              <div style={{ fontWeight:700, fontSize:11, color:vitals.morningAdhkar?"#92400e":"#64748b" }}>{vitals.morningAdhkar?"✓ ":""}Morning Adhkar</div>
+              <div style={{ fontSize:10, color:"#94a3b8", marginTop:2 }}>أذكار الصباح</div>
+            </button>
+            <button onClick={toggleEvening} style={{ flex:1, padding:"11px 8px", borderRadius:12, border:`2px solid ${vitals.eveningAdhkar?"#6366f1":"#e2e8f0"}`, background:vitals.eveningAdhkar?"#eef2ff":"#f8fafc", cursor:"pointer", textAlign:"center" }}>
+              <div style={{ fontSize:22, marginBottom:3 }}>🌙</div>
+              <div style={{ fontWeight:700, fontSize:11, color:vitals.eveningAdhkar?"#3730a3":"#64748b" }}>{vitals.eveningAdhkar?"✓ ":""}Evening Adhkar</div>
+              <div style={{ fontSize:10, color:"#94a3b8", marginTop:2 }}>أذكار المساء</div>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Daily Suggestions ── */}
+        {suggestions.length > 0 && (
+          <div style={{ background:"#fff", borderRadius:16, border:"2px solid #e2e8f0", padding:"15px", marginBottom:14 }}>
+            <div style={{ fontWeight:900, fontSize:14, color:"#0f172a", marginBottom:12 }}>💡 Today's Suggestions</div>
+            {suggestions.map((s,i) => (
+              <div key={i} style={{ display:"flex", gap:10, padding:"9px 0", borderBottom: i<suggestions.length-1 ? "1px solid #f1f5f9" : "none", alignItems:"flex-start" }}>
+                <span style={{ fontSize:18, flexShrink:0, lineHeight:1.3 }}>{s.icon}</span>
+                <span style={{ fontSize:12, color:"#374151", lineHeight:1.55 }}>{s.text}</span>
+              </div>
+            ))}
           </div>
         )}
+
+        {/* ── Morning / Night routine blocks ── */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+          <div style={{ background:"linear-gradient(135deg,#fef3c7,#fffbeb)", borderRadius:14, border:"1px solid #fcd34d", padding:"14px" }}>
+            <div style={{ fontWeight:900, fontSize:13, color:"#92400e", marginBottom:9 }}>🌅 Morning Routine</div>
+            {["Fajr prayer","Morning adhkar","Read Quran","Exercise & breakfast","Plan your day"].map((t,i)=>(
+              <div key={i} style={{ fontSize:11, color:"#78350f", marginBottom:5, display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ width:5, height:5, borderRadius:"50%", background:"#f59e0b", flexShrink:0 }}/>{t}
+              </div>
+            ))}
+          </div>
+          <div style={{ background:"linear-gradient(135deg,#eef2ff,#f5f3ff)", borderRadius:14, border:"1px solid #c7d2fe", padding:"14px" }}>
+            <div style={{ fontWeight:900, fontSize:13, color:"#3730a3", marginBottom:9 }}>🌙 Night Routine</div>
+            {["Maghrib & Isha","Evening adhkar","Review your day","Plan tomorrow","Read & rest"].map((t,i)=>(
+              <div key={i} style={{ fontSize:11, color:"#312e81", marginBottom:5, display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ width:5, height:5, borderRadius:"50%", background:"#818cf8", flexShrink:0 }}/>{t}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Milestones ── */}
+        <div style={{ background:"#fff", borderRadius:16, border:"2px solid #e2e8f0", padding:"15px" }}>
+          <div style={{ fontWeight:900, fontSize:14, color:"#0f172a", marginBottom:12 }}>
+            📌 Milestones{items.length > 0 ? ` — ${items.length} due today` : ""}
+          </div>
+          {items.length === 0 ? (
+            <div style={{ textAlign:"center", color:"#94a3b8", padding:"20px 0", fontSize:13 }}>🎉 No milestones due on this day</div>
+          ) : items.map(m => {
+            const st = getCalStatusStyle(m.status);
+            const p  = pillarMap[m.pillar_id];
+            return (
+              <div key={m.id} style={{ background:st.bg, border:`2px solid ${st.border}`, borderRadius:14, padding:"13px 15px", marginBottom:9 }}>
+                <div style={{ fontWeight:800, fontSize:14, color:"#1e1b4b", marginBottom:5 }}>{p?.icon} {m.name}</div>
+                <div style={{ fontSize:11, color:"#64748b", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                  <span>{p?.name}</span>
+                  <span style={{ fontWeight:700, color:st.text }}>{(m.status||"").replace(/_/g," ")}</span>
+                  {m.urgent && m.important  && <span style={{ background:"#fee2e2", color:"#991b1b", borderRadius:99, padding:"1px 7px", fontSize:10, fontWeight:700 }}>DO FIRST</span>}
+                  {!m.urgent && m.important && <span style={{ background:"#dbeafe", color:"#1e40af", borderRadius:99, padding:"1px 7px", fontSize:10, fontWeight:700 }}>SCHEDULE</span>}
+                  {m.urgent && !m.important && <span style={{ background:"#fef3c7", color:"#92400e", borderRadius:99, padding:"1px 7px", fontSize:10, fontWeight:700 }}>DELEGATE</span>}
+                </div>
+                {m.notes ? <div style={{ fontSize:12, color:"#64748b", marginTop:7, fontStyle:"italic" }}>{m.notes}</div> : null}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
