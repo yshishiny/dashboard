@@ -2790,7 +2790,7 @@ function EisenhowerView({ milestones, pillars, profiles, onEditMilestone, onCycl
                 ) : items.map(m => {
                   const pillar = pillars.find(p => p.id === m.pillar_id);
                   const assignee = profiles.find(p => p.id === m.assigned_to);
-                  const st = MILESTONE_STATUSES[m.status] || MILESTONE_STATUS_FALLBACK;
+                  const st = MILESTONE_STATUS[m.status] || MILESTONE_STATUS_FALLBACK;
                   return (
                     <div key={m.id} className="px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer group"
                       onClick={() => onEditMilestone(m)}>
