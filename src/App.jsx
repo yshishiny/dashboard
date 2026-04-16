@@ -2882,132 +2882,268 @@ function AnalysisView({ pillars, milestones, profiles }) {
   );
 }
 
-// ─── MyDayView ─────────────────────────────────────────────────────────────────
-const DEFAULT_ROUTINE = [
-  { id: "wake",    time: "06:30", label: "Wake up & morning routine", icon: "☀️", type: "routine", duration: 30 },
-  { id: "ex",      time: "07:00", label: "Exercise / run",            icon: "🏃", type: "routine", duration: 45 },
-  { id: "bkfst",   time: "08:00", label: "Breakfast",                 icon: "🍳", type: "routine", duration: 20 },
-  { id: "commute", time: "08:30", label: "Commute to work",           icon: "🚗", type: "routine", duration: 30 },
-  { id: "lunch",   time: "13:00", label: "Lunch break",               icon: "🥗", type: "routine", duration: 60 },
-  { id: "end",     time: "17:30", label: "End of work / commute home",icon: "🏠", type: "routine", duration: 45 },
-  { id: "dinner",  time: "19:30", label: "Dinner",                    icon: "🍽️", type: "routine", duration: 45 },
-  { id: "wind",    time: "22:00", label: "Wind down / sleep prep",    icon: "🌙", type: "routine", duration: 30 },
-];
+// ─── MyDayView (Full Gregorian Calendar) ──────────────────────────────────────
+const CAL_STATUS_STYLES = {
+  done:        { bg: "#f0fdf4", border: "#86efac", text: "#15803d", dot: "#16a34a" },
+  in_progress: { bg: "#eff6ff", border: "#93c5fd", text: "#1d4ed8", dot: "#2563eb" },
+  not_started: { bg: "#f5f3ff", border: "#c4b5fd", text: "#7c3aed", dot: "#7c3aed" },
+  blocked:     { bg: "#fef2f2", border: "#fca5a5", text: "#dc2626", dot: "#dc2626" },
+};
+function getCalStatusStyle(status) { return CAL_STATUS_STYLES[status] || CAL_STATUS_STYLES.not_started; }
+function isoToLocalDate(s) { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); }
+function dateToIsoStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function calStartOfWeek(d) { const day = d.getDay(); const diff = day === 0 ? -6 : 1 - day; const r = new Date(d); r.setDate(r.getDate()+diff); return r; }
+function calAddDays(d, n) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+const CAL_MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const CAL_DAY_NAMES = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
 function MyDayView({ milestones, pillars }) {
-  const today = new Date().toISOString().split("T")[0];
-  const todayLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  const in7 = new Date(Date.now() + 7*86400000).toISOString().split("T")[0];
+  const todayIso = new Date().toISOString().split("T")[0];
+  const [calView, setCalView] = React.useState("month");
+  const [cursor, setCursor] = React.useState(new Date());
 
-  const urgent = milestones.filter(m => m.status !== "done" && m.due_date && m.due_date <= in7);
-  const overdue = urgent.filter(m => m.due_date < today);
-  const dueToday = urgent.filter(m => m.due_date === today);
-  const dueWeek = urgent.filter(m => m.due_date > today);
-  const doFirst = milestones.filter(m => m.urgent && m.important && m.status !== "done");
+  const byDate = React.useMemo(() => {
+    const map = {};
+    (milestones || []).forEach(m => {
+      if (m.due_date) { if (!map[m.due_date]) map[m.due_date] = []; map[m.due_date].push(m); }
+    });
+    return map;
+  }, [milestones]);
 
-  const [slots, setSlots] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("myday_slots") || "null") || DEFAULT_ROUTINE; } catch { return DEFAULT_ROUTINE; }
-  });
-  const [newSlot, setNewSlot] = React.useState({ time: "09:00", label: "", icon: "📌" });
-  const [showAdd, setShowAdd] = React.useState(false);
+  const pillarMap = React.useMemo(() => {
+    const m = {}; (pillars || []).forEach(p => { m[p.id] = p; }); return m;
+  }, [pillars]);
 
-  const saveSlots = (s) => { setSlots(s); try { localStorage.setItem("myday_slots", JSON.stringify(s)); } catch {} };
-  const addSlot = () => {
-    if (!newSlot.label.trim()) return;
-    const s = [...slots, { ...newSlot, id: `s${Date.now()}`, type: "task" }].sort((a, b) => a.time.localeCompare(b.time));
-    saveSlots(s);
-    setNewSlot({ time: "09:00", label: "", icon: "📌" });
-    setShowAdd(false);
+  const navigate = (dir) => {
+    const d = new Date(cursor);
+    if (calView === "day") d.setDate(d.getDate() + dir);
+    else if (calView === "week") d.setDate(d.getDate() + dir * 7);
+    else if (calView === "month") d.setMonth(d.getMonth() + dir);
+    else if (calView === "quarter") d.setMonth(d.getMonth() + dir * 3);
+    setCursor(d);
   };
-  const removeSlot = (id) => saveSlots(slots.filter(s => s.id !== id));
 
-  const sorted = [...slots].sort((a, b) => a.time.localeCompare(b.time));
+  const headerLabel = () => {
+    if (calView === "day") return cursor.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
+    if (calView === "week") {
+      const ws = calStartOfWeek(cursor);
+      const we = calAddDays(ws, 6);
+      return `${ws.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${we.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}`;
+    }
+    if (calView === "month") return `${CAL_MONTH_NAMES[cursor.getMonth()]} ${cursor.getFullYear()}`;
+    const q = Math.floor(cursor.getMonth() / 3) + 1;
+    return `Q${q} · ${cursor.getFullYear()}`;
+  };
 
-  const pill = (m, color) => {
-    const p = pillars.find(pl => pl.id === m.pillar_id);
+  const MilestoneChip = ({ m, compact }) => {
+    const st = getCalStatusStyle(m.status);
+    const p = pillarMap[m.pillar_id];
     return (
-      <div key={m.id} style={{ background: color + "11", border: `1px solid ${color}44`, borderRadius: 10, padding: "8px 12px", marginBottom: 6 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{m.name}</div>
-        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{p?.icon} {p?.name} {m.due_date ? `· due ${m.due_date}` : ""}</div>
+      <div style={{
+        background: st.bg, border: `1px solid ${st.border}`, borderRadius: 6,
+        padding: compact ? "2px 5px" : "5px 9px", marginBottom: 2,
+        fontSize: compact ? 10 : 11, color: st.text, fontWeight: 600,
+        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3,
+      }}>
+        {p?.icon ? <span style={{ marginRight: 3 }}>{p.icon}</span> : null}{m.name}
       </div>
     );
   };
 
+  // ── DAY VIEW ────────────────────────────────────────────────────────────────
+  const DayView = () => {
+    const iso = dateToIsoStr(cursor);
+    const items = byDate[iso] || [];
+    const isToday = iso === todayIso;
+    return (
+      <div style={{ background: "#fff", borderRadius: 16, border: "2px solid #e2e8f0", padding: 20 }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <span style={{ display: "inline-block", background: isToday ? "linear-gradient(135deg,#7c3aed,#db2777)" : "#f1f5f9", color: isToday ? "#fff" : "#334155", borderRadius: 99, padding: "8px 24px", fontWeight: 800, fontSize: 17 }}>
+            {cursor.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" })}
+          </span>
+        </div>
+        {items.length === 0 ? (
+          <div style={{ textAlign: "center", color: "#94a3b8", padding: "48px 0", fontSize: 14 }}>🎉 No milestones due on this day</div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>{items.length} Milestone{items.length !== 1 ? "s" : ""} Due</div>
+            {items.map(m => {
+              const st = getCalStatusStyle(m.status);
+              const p = pillarMap[m.pillar_id];
+              return (
+                <div key={m.id} style={{ background: st.bg, border: `2px solid ${st.border}`, borderRadius: 14, padding: "14px 16px", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#1e1b4b", marginBottom: 5 }}>{p?.icon} {m.name}</div>
+                  <div style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span>{p?.name}</span>
+                    <span style={{ fontWeight: 700, color: st.text }}>{(m.status || "").replace(/_/g," ")}</span>
+                    {m.urgent && m.important   && <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 99, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>DO FIRST</span>}
+                    {!m.urgent && m.important  && <span style={{ background: "#dbeafe", color: "#1e40af", borderRadius: 99, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>SCHEDULE</span>}
+                    {m.urgent && !m.important  && <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 99, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>DELEGATE</span>}
+                  </div>
+                  {m.notes ? <div style={{ fontSize: 12, color: "#64748b", marginTop: 8, fontStyle: "italic" }}>{m.notes}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── WEEK VIEW ───────────────────────────────────────────────────────────────
+  const WeekView = () => {
+    const ws = calStartOfWeek(cursor);
+    const days = Array.from({ length: 7 }, (_, i) => calAddDays(ws, i));
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+        {CAL_DAY_NAMES.map((dayName, i) => {
+          const date = days[i];
+          const iso = dateToIsoStr(date);
+          const isToday = iso === todayIso;
+          const items = byDate[iso] || [];
+          return (
+            <div key={dayName + i} style={{ background: isToday ? "#f5f3ff" : "#fff", border: `2px solid ${isToday ? "#7c3aed" : "#e2e8f0"}`, borderRadius: 12, padding: 8, minHeight: 130 }}>
+              <div style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: isToday ? "#7c3aed" : "#94a3b8", textTransform: "uppercase", marginBottom: 4 }}>{dayName}</div>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", margin: "0 auto 8px", background: isToday ? "#7c3aed" : "transparent", color: isToday ? "#fff" : "#334155", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {date.getDate()}
+              </div>
+              {items.slice(0, 4).map(m => <MilestoneChip key={m.id} m={m} compact />)}
+              {items.length > 4 && <div style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", marginTop: 2 }}>+{items.length - 4} more</div>}
+              {items.length === 0 && <div style={{ textAlign: "center", fontSize: 16, color: "#e2e8f0", paddingTop: 8 }}>·</div>}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ── MONTH VIEW ──────────────────────────────────────────────────────────────
+  const MonthView = ({ year, month, mini, onDayClick }) => {
+    const y = year !== undefined ? year : cursor.getFullYear();
+    const mo = month !== undefined ? month : cursor.getMonth();
+    const firstDay = new Date(y, mo, 1);
+    const lastDay = new Date(y, mo + 1, 0);
+    let startOffset = firstDay.getDay() - 1;
+    if (startOffset < 0) startOffset = 6;
+    const cells = [];
+    for (let i = 0; i < startOffset; i++) cells.push(null);
+    for (let d = 1; d <= lastDay.getDate(); d++) cells.push(new Date(y, mo, d));
+
+    if (mini) {
+      return (
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: 14, flex: 1, minWidth: 0 }}>
+          <div style={{ textAlign: "center", fontWeight: 800, color: "#7c3aed", marginBottom: 10, fontSize: 13 }}>{CAL_MONTH_NAMES[mo]} {y}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, marginBottom: 4 }}>
+            {["M","T","W","T","F","S","S"].map((d, i) => (
+              <div key={i} style={{ textAlign: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8" }}>{d}</div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1 }}>
+            {cells.map((date, i) => {
+              if (!date) return <div key={`e${i}`} />;
+              const iso = dateToIsoStr(date);
+              const isToday = iso === todayIso;
+              const count = (byDate[iso] || []).length;
+              return (
+                <div key={iso} onClick={() => { if (onDayClick) onDayClick(date); else { setCursor(date); setCalView("day"); } }}
+                  style={{ textAlign: "center", borderRadius: 4, padding: "3px 0", cursor: count > 0 ? "pointer" : "default", background: isToday ? "#7c3aed" : count > 0 ? "#f5f3ff" : "transparent", color: isToday ? "#fff" : count > 0 ? "#7c3aed" : "#334155", fontWeight: isToday || count > 0 ? 700 : 400, fontSize: 11, position: "relative" }}>
+                  {date.getDate()}
+                  {count > 0 && !isToday && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#7c3aed", margin: "1px auto 0" }} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ background: "#fff", borderRadius: 16, border: "2px solid #e2e8f0", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+          {CAL_DAY_NAMES.map(d => (
+            <div key={d} style={{ textAlign: "center", padding: "10px 4px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+          {cells.map((date, i) => {
+            if (!date) return <div key={`e${i}`} style={{ borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9", minHeight: 95 }} />;
+            const iso = dateToIsoStr(date);
+            const isToday = iso === todayIso;
+            const items = byDate[iso] || [];
+            return (
+              <div key={iso} onClick={() => { if (items.length) { setCursor(date); setCalView("day"); } }}
+                style={{ borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9", minHeight: 95, padding: 6, background: isToday ? "#f5f3ff" : "#fff", cursor: items.length ? "pointer" : "default" }}>
+                <div style={{ width: 26, height: 26, borderRadius: "50%", background: isToday ? "#7c3aed" : "transparent", color: isToday ? "#fff" : "#334155", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: isToday ? 800 : 500, fontSize: 13, marginBottom: 4 }}>
+                  {date.getDate()}
+                </div>
+                {items.slice(0, 3).map(m => <MilestoneChip key={m.id} m={m} compact />)}
+                {items.length > 3 && <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>+{items.length - 3} more</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ── QUARTER VIEW ────────────────────────────────────────────────────────────
+  const QuarterView = () => {
+    const q = Math.floor(cursor.getMonth() / 3);
+    const y = cursor.getFullYear();
+    const months = [q * 3, q * 3 + 1, q * 3 + 2];
+    return (
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        {months.map(mo => (
+          <MonthView key={mo} year={y} month={mo} mini onDayClick={(d) => { setCursor(d); setCalView("day"); }} />
+        ))}
+      </div>
+    );
+  };
+
+  const Legend = () => (
+    <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", marginTop: 16 }}>
+      {Object.entries(CAL_STATUS_STYLES).map(([key, st]) => (
+        <div key={key} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#64748b" }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: st.dot, flexShrink: 0 }} />
+          {key.replace(/_/g," ")}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div style={{ padding: "24px 16px 96px" }}>
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#0369a1,#0ea5e9)", color: "#fff", padding: "8px 20px", borderRadius: 99, fontWeight: 900, fontSize: 14 }}>
-          🌅 My Day — {todayLabel}
+      {/* Title */}
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#7c3aed,#0ea5e9)", color: "#fff", padding: "8px 22px", borderRadius: 99, fontWeight: 900, fontSize: 14 }}>
+          📅 Project Calendar
         </span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-        <div style={{ background: overdue.length ? "#fef2f2" : "#f0fdf4", border: `2px solid ${overdue.length ? "#fca5a5" : "#86efac"}`, borderRadius: 16, padding: "14px 16px" }}>
-          <div style={{ fontWeight: 900, fontSize: 22, color: overdue.length ? "#dc2626" : "#16a34a" }}>{overdue.length}</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Overdue</div>
-        </div>
-        <div style={{ background: "#eff6ff", border: "2px solid #bfdbfe", borderRadius: 16, padding: "14px 16px" }}>
-          <div style={{ fontWeight: 900, fontSize: 22, color: "#2563eb" }}>{dueToday.length + dueWeek.length}</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Due Soon</div>
-        </div>
-      </div>
-
-      {/* Today's focus */}
-      {(overdue.length > 0 || dueToday.length > 0 || doFirst.length > 0) && (
-        <div style={{ background: "#fff", borderRadius: 20, border: "2px solid #e2e8f0", padding: "16px", marginBottom: 16 }}>
-          <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 10, color: "#0f172a" }}>🎯 Today's Focus</div>
-          {overdue.slice(0, 2).map(m => pill(m, "#ef4444"))}
-          {dueToday.slice(0, 2).map(m => pill(m, "#3b82f6"))}
-          {doFirst.filter(m => !overdue.includes(m) && !dueToday.includes(m)).slice(0, 2).map(m => pill(m, "#8b5cf6"))}
-        </div>
-      )}
-
-      {/* Due this week */}
-      {dueWeek.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 20, border: "2px solid #e2e8f0", padding: "16px", marginBottom: 16 }}>
-          <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 10, color: "#0f172a" }}>📅 Due This Week</div>
-          {dueWeek.slice(0, 4).map(m => pill(m, "#f59e0b"))}
-          {dueWeek.length > 4 && <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginTop: 4 }}>+{dueWeek.length - 4} more</div>}
-        </div>
-      )}
-
-      {/* Daily schedule */}
-      <div style={{ background: "#fff", borderRadius: 20, border: "2px solid #e2e8f0", padding: "16px", marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontWeight: 900, fontSize: 14, color: "#0f172a" }}>🗓️ Daily Schedule</div>
-          <button onClick={() => setShowAdd(!showAdd)} style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", color: "#fff", border: "none", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>+ Add Slot</button>
-        </div>
-
-        {showAdd && (
-          <div style={{ background: "#f8fafc", borderRadius: 12, padding: "12px", marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <input type="time" value={newSlot.time} onChange={e => setNewSlot({ ...newSlot, time: e.target.value })} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }} />
-            <input type="text" placeholder="What are you doing?" value={newSlot.label} onChange={e => setNewSlot({ ...newSlot, label: e.target.value })} style={{ flex: 1, minWidth: 150, padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }} />
-            <input type="text" placeholder="Emoji" value={newSlot.icon} onChange={e => setNewSlot({ ...newSlot, icon: e.target.value })} style={{ width: 60, padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, textAlign: "center" }} />
-            <button onClick={addSlot} style={{ background: "#22c55e", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Add</button>
-          </div>
-        )}
-
-        {sorted.map(s => (
-          <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: "1px solid #f1f5f9" }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "#7c3aed", minWidth: 42, flexShrink: 0 }}>{s.time}</span>
-            <span style={{ fontSize: 18, flexShrink: 0 }}>{s.icon}</span>
-            <span style={{ flex: 1, fontSize: 13, fontWeight: s.type === "task" ? 700 : 500, color: s.type === "task" ? "#1e293b" : "#475569" }}>{s.label}</span>
-            {s.type === "task" && (
-              <button onClick={() => removeSlot(s.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", fontSize: 16, padding: "0 4px" }}>×</button>
-            )}
-          </div>
+      {/* View toggle */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        {["day","week","month","quarter"].map(v => (
+          <button key={v} onClick={() => setCalView(v)} style={{ padding: "7px 18px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: calView === v ? "linear-gradient(135deg,#7c3aed,#a855f7)" : "#f1f5f9", color: calView === v ? "#fff" : "#475569", boxShadow: calView === v ? "0 2px 8px rgba(124,58,237,0.3)" : "none", transition: "all 0.15s" }}>
+            {v.charAt(0).toUpperCase() + v.slice(1)}
+          </button>
         ))}
       </div>
 
-      {/* Tips */}
-      <div style={{ background: "linear-gradient(135deg,#0369a1,#0ea5e9)", borderRadius: 20, padding: "20px", color: "#fff" }}>
-        <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 10 }}>💡 Productivity Tips for Today</div>
-        {overdue.length > 0 && <div style={{ fontSize: 13, marginBottom: 6 }}>• Start your workday by clearing the {overdue.length} overdue item{overdue.length > 1 ? "s" : ""} — even 30 min makes a difference.</div>}
-        {doFirst.length > 0 && <div style={{ fontSize: 13, marginBottom: 6 }}>• Schedule your Do-First tasks during your peak energy hours (usually 9–11 AM).</div>}
-        {dueWeek.length > 2 && <div style={{ fontSize: 13, marginBottom: 6 }}>• You have {dueWeek.length} items due this week. Block 2-hour focus sessions in your calendar now.</div>}
-        <div style={{ fontSize: 13, marginBottom: 6 }}>• Use commute time for planning — review your milestones and mentally prioritise.</div>
-        <div style={{ fontSize: 13 }}>• Protect your lunch break — a real break improves afternoon focus by up to 30%.</div>
+      {/* Navigation */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 }}>
+        <button onClick={() => navigate(-1)} style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 18, cursor: "pointer", fontWeight: 700, color: "#475569", lineHeight: 1 }}>‹</button>
+        <div style={{ fontWeight: 800, fontSize: 15, color: "#1e1b4b", minWidth: 220, textAlign: "center" }}>{headerLabel()}</div>
+        <button onClick={() => navigate(1)} style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 18, cursor: "pointer", fontWeight: 700, color: "#475569", lineHeight: 1 }}>›</button>
+        <button onClick={() => setCursor(new Date())} style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Today</button>
       </div>
+
+      {/* Calendar body */}
+      {calView === "day"     && <DayView />}
+      {calView === "week"    && <WeekView />}
+      {calView === "month"   && <MonthView />}
+      {calView === "quarter" && <QuarterView />}
+
+      <Legend />
     </div>
   );
 }
