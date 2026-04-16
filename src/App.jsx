@@ -2796,8 +2796,8 @@ function EisenhowerView({ milestones, pillars, profiles, onEditMilestone, onCycl
                       onClick={() => onEditMilestone(m)}>
                       <div className="flex items-start gap-3">
                         <button onClick={e => { e.stopPropagation(); onCycleMilestoneStatus(m); }}
-                          className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${st.bg}`}>
-                          <st.Icon className={`w-3 h-3 ${st.text}`} />
+                          className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${st.badge}`}>
+                          {st.icon}
                         </button>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-bold text-slate-800 truncate">{m.name}</div>
