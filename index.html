@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.min.js" onerror="window.Recharts=null"></script>
 <style>
 /* ===== BASE RESET & TYPOGRAPHY ===== */
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
@@ -764,6 +764,15 @@ function DashboardPage() {
 function PillarsPage() {
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState('cards');
+  const [milestones, setMilestones] = useState(MILESTONES_DATA);
+  const STATUS_CYCLE = ['not_started','in_progress','done','blocked'];
+  const cycleMilestoneStatus = (id) => {
+    setMilestones(prev => prev.map(m => {
+      if (m.id !== id) return m;
+      const idx = STATUS_CYCLE.indexOf(m.status);
+      return { ...m, status: STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length] };
+    }));
+  };
 
   return (
     <div>
@@ -870,16 +879,16 @@ function PillarsPage() {
             <CircularProgress value={selected.progress} max={100} size={100} strokeWidth={8}/>
             <div style={{ marginTop:24 }}>
               <div className="card-title">Milestones</div>
-              {MILESTONES_DATA.filter(m => m.pillarId === selected.id).map(m => (
+              {milestones.filter(m => m.pillarId === selected.id).map(m => (
                 <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border-color)' }}>
-                  <div style={{ width:24, height:24, borderRadius:6, background: m.status === 'done' ? 'rgba(34,197,94,0.2)' : 'var(--bg-input)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color: m.status === 'done' ? '#22c55e' : 'var(--text-muted)' }}>
-                    {m.status === 'done' ? '✓' : '○'}
+                  <div onClick={() => cycleMilestoneStatus(m.id)} style={{ width:28, height:28, borderRadius:6, background: m.status === 'done' ? 'rgba(34,197,94,0.2)' : m.status === 'in_progress' ? 'rgba(59,130,246,0.2)' : m.status === 'blocked' ? 'rgba(239,68,68,0.2)' : 'var(--bg-input)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color: m.status === 'done' ? '#22c55e' : m.status === 'in_progress' ? '#3b82f6' : m.status === 'blocked' ? '#ef4444' : 'var(--text-muted)', cursor:'pointer', transition:'all 0.2s', border:'2px solid transparent', flexShrink:0 }} title="Click to change status">
+                    {m.status === 'done' ? '✓' : m.status === 'in_progress' ? '◐' : m.status === 'blocked' ? '✗' : '○'}
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:14, fontWeight:500 }}>{m.name}</div>
                     <div className="text-xs text-muted">{m.dueDate}</div>
                   </div>
-                  <span className={`badge badge-${m.status === 'done' ? 'done' : m.status === 'in_progress' ? 'progress' : 'not-started'}`}>
+                  <span onClick={() => cycleMilestoneStatus(m.id)} style={{ cursor:'pointer' }} className={`badge badge-${m.status === 'done' ? 'done' : m.status === 'in_progress' ? 'progress' : m.status === 'blocked' ? 'blocked' : 'not-started'}`}>
                     {m.status.replace('_',' ')}
                   </span>
                 </div>
@@ -1051,14 +1060,6 @@ function CalendarPage() {
 
 // ===== ACTIVITIES PAGE =====
 function ActivitiesPage() {
-  const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } = Recharts || {};
-
-  const pieData = [
-    { name:'Prayers', value: 95, color:'#22c55e' },
-    { name:'Quran', value: 80, color:'#14b8a6' },
-    { name:'Sports', value: 64, color:'#f97316' },
-    { name:'Sleep', value: 90, color:'#3b82f6' },
-  ];
 
   return (
     <div>
@@ -1113,34 +1114,18 @@ function ActivitiesPage() {
       <div className="grid-2 section-gap">
         {/* Weekly Activity Chart */}
         <div className="card">
-          <div className="card-title">Weekly Sports Activity</div>
-          {BarChart ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={WEEKLY_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)"/>
-                <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={12}/>
-                <YAxis stroke="var(--text-muted)" fontSize={12}/>
-                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
-                <Bar dataKey="sports" fill="#f97316" radius={[4,4,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <div style={{ textAlign:'center', color:'var(--text-muted)', padding:40 }}>Charts loading...</div>}
+          <div className="card-title">Weekly Sports Activity (minutes)</div>
+          <CSSBarChart data={WEEKLY_DATA} labelKey="day" bars={[
+            { key:'sports', color:'#f97316' },
+          ]}/>
         </div>
 
         {/* Sleep Trend */}
         <div className="card">
           <div className="card-title">Sleep Hours This Week</div>
-          {LineChart ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={WEEKLY_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)"/>
-                <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={12}/>
-                <YAxis stroke="var(--text-muted)" fontSize={12} domain={[5,10]}/>
-                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
-                <Line type="monotone" dataKey="sleep" stroke="#3b82f6" strokeWidth={3} dot={{ r:5, fill:'#3b82f6' }}/>
-              </LineChart>
-            </ResponsiveContainer>
-          ) : <div style={{ textAlign:'center', color:'var(--text-muted)', padding:40 }}>Charts loading...</div>}
+          <CSSLineChart data={WEEKLY_DATA} labelKey="day" lines={[
+            { key:'sleep', name:'Sleep', color:'#3b82f6' },
+          ]}/>
         </div>
       </div>
 
@@ -1174,10 +1159,94 @@ function ActivitiesPage() {
   );
 }
 
+// ===== CSS BAR CHART COMPONENT =====
+function CSSBarChart({ data, bars, labelKey }) {
+  const maxVal = Math.max(...data.flatMap(d => bars.map(b => d[b.key])));
+  return (
+    <div style={{ display:'flex', alignItems:'flex-end', gap:16, height:220, padding:'10px 0' }}>
+      {data.map((d, i) => (
+        <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4, height:'100%', justifyContent:'flex-end' }}>
+          <div style={{ display:'flex', gap:4, alignItems:'flex-end', flex:1 }}>
+            {bars.map(b => (
+              <div key={b.key} style={{
+                width: 28, borderRadius:'6px 6px 0 0', background:b.color,
+                height: Math.max((d[b.key]/maxVal)*180, 8)+'px',
+                transition:'height 0.4s ease',
+                position:'relative',
+              }}>
+                <span style={{ position:'absolute', top:-20, left:'50%', transform:'translateX(-50%)', fontSize:11, fontWeight:600, color:'var(--text-secondary)' }}>{d[b.key]}</span>
+              </div>
+            ))}
+          </div>
+          <span style={{ fontSize:12, color:'var(--text-muted)', marginTop:4 }}>{d[labelKey]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ===== CSS DONUT CHART COMPONENT =====
+function CSSDonutChart({ data }) {
+  const total = data.reduce((s,d) => s + d.value, 0);
+  let cumulative = 0;
+  const segments = data.map(d => {
+    const start = (cumulative / total) * 360;
+    cumulative += d.value;
+    const end = (cumulative / total) * 360;
+    return { ...d, start, end };
+  });
+  const gradientParts = segments.map(s => `${s.color} ${s.start}deg ${s.end}deg`).join(', ');
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:32, justifyContent:'center', padding:'20px 0' }}>
+      <div style={{
+        width:160, height:160, borderRadius:'50%',
+        background:`conic-gradient(${gradientParts})`,
+        display:'flex', alignItems:'center', justifyContent:'center',
+      }}>
+        <div style={{ width:90, height:90, borderRadius:'50%', background:'var(--bg-card)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:800 }}>{total}%</div>
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {data.map((d,i) => (
+          <div key={i} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ width:12, height:12, borderRadius:3, background:d.color }}/>
+            <span style={{ fontSize:13 }}>{d.name}</span>
+            <span style={{ fontSize:13, fontWeight:700, marginLeft:4 }}>{d.value}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ===== CSS LINE CHART COMPONENT =====
+function CSSLineChart({ data, lines, labelKey }) {
+  return (
+    <div style={{ padding:'10px 0' }}>
+      {lines.map(line => {
+        const maxVal = Math.max(...data.map(d => d[line.key]));
+        return (
+          <div key={line.key} style={{ marginBottom:16 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:line.color, marginBottom:8 }}>{line.name}</div>
+            <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:80 }}>
+              {data.map((d,i) => (
+                <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                  <span style={{ fontSize:11, fontWeight:600, color:line.color }}>{d[line.key]}h</span>
+                  <div style={{ width:'100%', borderRadius:6, background:`${line.color}33`, height: Math.max((d[line.key]/maxVal)*60, 6)+'px', transition:'height 0.4s' }}>
+                    <div style={{ width:'100%', height:'100%', borderRadius:6, background:line.color, opacity:0.7 }}/>
+                  </div>
+                  <span style={{ fontSize:10, color:'var(--text-muted)' }}>{d[labelKey]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ===== ANALYTICS PAGE =====
 function AnalyticsPage() {
-  const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, AreaChart, Area } = Recharts || {};
-
   const monthlyProgress = [
     { month:'Jan', tasks:12, completed:10 },
     { month:'Feb', tasks:15, completed:13 },
@@ -1193,10 +1262,10 @@ function AnalyticsPage() {
   ];
 
   const productivityTrend = [
-    { week:'W1', focus:6.5, meetings:2, deep:4.5 },
-    { week:'W2', focus:7.2, meetings:1.5, deep:5.7 },
-    { week:'W3', focus:5.8, meetings:3, deep:2.8 },
-    { week:'W4', focus:8.0, meetings:1, deep:7.0 },
+    { week:'W1', deep:4.5, meetings:2 },
+    { week:'W2', deep:5.7, meetings:1.5 },
+    { week:'W3', deep:2.8, meetings:3 },
+    { week:'W4', deep:7.0, meetings:1 },
   ];
 
   return (
@@ -1230,35 +1299,20 @@ function AnalyticsPage() {
         {/* Monthly Task Completion */}
         <div className="card">
           <div className="card-title">Monthly Task Completion</div>
-          {BarChart ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={monthlyProgress}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)"/>
-                <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={12}/>
-                <YAxis stroke="var(--text-muted)" fontSize={12}/>
-                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
-                <Legend/>
-                <Bar dataKey="tasks" name="Total" fill="var(--accent-3)" radius={[4,4,0,0]}/>
-                <Bar dataKey="completed" name="Done" fill="var(--accent-1)" radius={[4,4,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : null}
+          <div style={{ display:'flex', gap:12, marginBottom:12 }}>
+            <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}><span style={{ width:10, height:10, borderRadius:2, background:'var(--accent-3)', display:'inline-block' }}/> Total</span>
+            <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}><span style={{ width:10, height:10, borderRadius:2, background:'var(--accent-1)', display:'inline-block' }}/> Done</span>
+          </div>
+          <CSSBarChart data={monthlyProgress} labelKey="month" bars={[
+            { key:'tasks', color:'var(--accent-3)' },
+            { key:'completed', color:'var(--accent-1)' },
+          ]}/>
         </div>
 
         {/* Category Distribution */}
         <div className="card">
           <div className="card-title">Work Distribution</div>
-          {PieChart ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={4} dataKey="value">
-                  {categoryData.map((entry, i) => <Cell key={i} fill={entry.color}/>)}
-                </Pie>
-                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
-                <Legend/>
-              </PieChart>
-            </ResponsiveContainer>
-          ) : null}
+          <CSSDonutChart data={categoryData}/>
         </div>
       </div>
 
@@ -1266,19 +1320,10 @@ function AnalyticsPage() {
         {/* Focus Time Trend */}
         <div className="card">
           <div className="card-title">Productivity Trend (hours/day)</div>
-          {AreaChart ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={productivityTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)"/>
-                <XAxis dataKey="week" stroke="var(--text-muted)" fontSize={12}/>
-                <YAxis stroke="var(--text-muted)" fontSize={12}/>
-                <Tooltip contentStyle={{ background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--text-primary)' }}/>
-                <Area type="monotone" dataKey="deep" name="Deep Work" stackId="1" stroke="#a855f7" fill="rgba(168,85,247,0.3)"/>
-                <Area type="monotone" dataKey="meetings" name="Meetings" stackId="1" stroke="#ec4899" fill="rgba(236,72,153,0.3)"/>
-                <Legend/>
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : null}
+          <CSSLineChart data={productivityTrend} labelKey="week" lines={[
+            { key:'deep', name:'Deep Work', color:'#a855f7' },
+            { key:'meetings', name:'Meetings', color:'#ec4899' },
+          ]}/>
         </div>
 
         {/* Pillar Progress Summary */}
