@@ -7,6 +7,7 @@ import {
   Paperclip, Sparkles, Target, Trash2, TrendingUp, Upload, User, UserPlus, Users, Wand2, X, Zap
 } from "lucide-react";
 import { supabase, hasSupabaseEnv } from "./supabase";
+import DailyView from "./components/DailyView";
 
 // ─── Vibrant Color Palette ────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -3621,7 +3622,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState(() => {
-    try { return localStorage.getItem("viewMode") || "hub"; } catch { return "hub"; }
+    try { return localStorage.getItem("viewMode") || "daily"; } catch { return "daily"; }
   });
   useEffect(() => { try { localStorage.setItem("viewMode", viewMode); } catch {} }, [viewMode]);
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
@@ -4003,6 +4004,7 @@ export default function App() {
           {headerCollapsed && (
             <div className="inline-flex items-center bg-slate-100 rounded-full p-0.5 shrink-0">
               {[
+                { id: "daily", label: "Daily" },
                 { id: "hub", label: "Hub" },
                 { id: "cards", label: "Cards" },
                 { id: "board", label: "Board" },
@@ -4097,6 +4099,7 @@ export default function App() {
             <div className="flex gap-2 overflow-x-auto pb-1 items-center">
               <div className="inline-flex items-center bg-white rounded-full p-1 shadow-sm border border-slate-200 flex-shrink-0">
                 {[
+                  { id: "daily", label: "✨ Daily" },
                   { id: "hub", label: "Hub" },
                   { id: "cards", label: "Cards" },
                   { id: "board", label: "Board" },
@@ -4128,7 +4131,17 @@ export default function App() {
 
       {/* Pillars */}
       <div className={viewMode === "cards" ? "px-4 py-6 space-y-4 pb-24" : "py-6 pb-24"}>
-        {viewMode === "matrix" ? (
+        {viewMode === "daily" ? (
+          <DailyView
+            user={user}
+            profile={currentProfile}
+            pillars={pillars}
+            milestones={milestones}
+            supabase={supabase}
+            demoMode={demoMode}
+            onCycleMilestoneStatus={handleCycleMilestoneStatus}
+          />
+        ) : viewMode === "matrix" ? (
           <EisenhowerView
             milestones={milestones}
             pillars={pillars}
